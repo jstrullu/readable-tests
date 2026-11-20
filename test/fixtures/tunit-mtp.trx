@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="9" name="julien@PC 2026-11-20" runUser="julien" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Results>
+    <UnitTestResult executionId="x1" testId="u1" testName="Total_IsComputed" computerName="PC" duration="00:00:00.0123000" startTime="2026-11-20T13:00:00Z" endTime="2026-11-20T13:00:00Z" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Failed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="x1">
+      <Output>
+        <StdOut>calcul du total</StdOut>
+        <ErrorInfo>
+          <Message>Expected to be 80
+but found 100
+
+at Assert.That(total).IsEqualTo(80)</Message>
+          <StackTrace>   at TUnit.Assertions.AssertionBuilders.AssertionBuilder`1.ProcessAssertionsAsync(AssertionData data)
+   at Shop.Tests.CartTests.Total_IsComputed() in C:\src\Shop.Tests\CartTests.cs:line 21
+   at Shop.Tests.CartTests.&lt;Total_IsComputed&gt;d__2.MoveNext() in C:\src\Shop.Tests\CartTests.cs:line 21
+--- End of stack trace from previous location ---
+   at TUnit.Core.AsyncConvert.ConvertObject(Object invoke)</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="x2" testId="u2" testName="Discount(0.5)" duration="00:00:00.0010000" outcome="Passed" />
+    <UnitTestResult executionId="x3" testId="u3" testName="Discount(1.5)" duration="00:00:00.0020000" outcome="Failed">
+      <Output><ErrorInfo><Message>Expected to be equal to Employee { FirstName = "Victoria", Age = 30 }
+but differs at member FirstName: expected "Victoria" but found "ictoria"
+
+at Assert.That(actual).IsEqualTo(expected)</Message></ErrorInfo></Output>
+    </UnitTestResult>
+  </Results>
+  <TestDefinitions>
+    <UnitTest name="Total_IsComputed" storage="shop.tests.dll" id="u1"><Execution id="x1" /><TestMethod codeBase="C:\src\Shop.Tests\bin\Debug\net9.0\Shop.Tests.dll" adapterTypeName="executor://tunit/" className="Shop.Tests.CartTests" name="Total_IsComputed" /></UnitTest>
+    <UnitTest name="Discount(0.5)" storage="shop.tests.dll" id="u2"><Execution id="x2" /><TestMethod codeBase="Shop.Tests.dll" adapterTypeName="executor://tunit/" className="Shop.Tests.CartTests" name="Discount" /></UnitTest>
+    <UnitTest name="Discount(1.5)" storage="shop.tests.dll" id="u3"><Execution id="x3" /><TestMethod codeBase="Shop.Tests.dll" adapterTypeName="executor://tunit/" className="Shop.Tests.CartTests" name="Discount" /></UnitTest>
+  </TestDefinitions>
+</TestRun>

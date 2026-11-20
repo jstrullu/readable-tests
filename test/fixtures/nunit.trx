@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="3" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Results>
+    <UnitTestResult executionId="a" testId="n1" testName="Sum(1,2,3)" duration="00:00:00.0040000" outcome="Passed" />
+    <UnitTestResult executionId="b" testId="n2" testName="Sum(2.5,2,5)" duration="00:00:00.0050000" outcome="Failed">
+      <Output><ErrorInfo><Message>Expected: 5 But was: 4.5</Message><StackTrace>at Calc.Tests.MathTests.Sum(Double a, Int32 b, Int32 e) in /src/Calc.Tests/UnitTest1.cs:line 6</StackTrace></ErrorInfo></Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="c" testId="n3" testName="SumBis" duration="00:00:00.0010000" outcome="Passed" />
+  </Results>
+  <TestDefinitions>
+    <UnitTest name="Sum(1,2,3)" id="n1"><TestMethod codeBase="Calc.Tests.dll" adapterTypeName="executor://NUnit3TestExecutor" className="Calc.Tests.MathTests" name="Sum(1,2,3)" /></UnitTest>
+    <UnitTest name="Sum(2.5,2,5)" id="n2"><TestMethod codeBase="Calc.Tests.dll" adapterTypeName="executor://NUnit3TestExecutor" className="Calc.Tests.MathTests" name="Sum(2.5,2,5)" /></UnitTest>
+    <UnitTest name="SumBis" id="n3"><TestMethod codeBase="Calc.Tests.dll" adapterTypeName="executor://NUnit3TestExecutor" className="Calc.Tests.MathTests" name="SumBis" /></UnitTest>
+  </TestDefinitions>
+</TestRun>

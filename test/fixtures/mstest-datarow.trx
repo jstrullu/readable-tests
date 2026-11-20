@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="2" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Results>
+    <UnitTestResult executionId="p1" testId="d1" testName="Sum" duration="00:00:00.0100000" outcome="Failed" resultType="DataDrivenTest">
+      <InnerResults>
+        <UnitTestResult executionId="i1" parentExecutionId="p1" testId="d1" testName="Sum (1,2,3)" duration="00:00:00.0010000" outcome="Passed" resultType="DataDrivenDataRow" />
+        <UnitTestResult executionId="i2" parentExecutionId="p1" testId="d1" testName="Sum (2,2,5)" duration="00:00:00.0020000" outcome="Failed" resultType="DataDrivenDataRow">
+          <Output><ErrorInfo><Message>Assert.AreEqual failed. Expected:&lt;5&gt;. Actual:&lt;4&gt;.</Message><StackTrace>   à Calc.Tests.MathTests.Sum(Int32 a, Int32 b, Int32 e) dans /src/Calc.Tests/MathTests.cs:ligne 17</StackTrace></ErrorInfo></Output>
+        </UnitTestResult>
+      </InnerResults>
+    </UnitTestResult>
+  </Results>
+  <TestDefinitions>
+    <UnitTest name="Sum" id="d1"><TestMethod codeBase="Calc.Tests.dll" className="Calc.Tests.MathTests, Calc.Tests, Version=1.0.0.0" name="Sum" /></UnitTest>
+  </TestDefinitions>
+</TestRun>

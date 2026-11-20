@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="1" name="run" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Results>
+    <UnitTestResult executionId="e1" testId="t1" testName="Shop.Tests.CartTests.Add_IncreasesTotal" duration="00:00:00.0123456" outcome="Passed" />
+    <UnitTestResult executionId="e2" testId="t2" testName="Shop.Tests.CartTests.Discount(rate: 0.1)" duration="00:00:00.0020000" outcome="Passed" />
+    <UnitTestResult executionId="e3" testId="t3" testName="Shop.Tests.CartTests.Discount(rate: 1.5)" duration="00:00:00.0030000" outcome="Failed">
+      <Output>
+        <StdOut>calcul remise 1.5</StdOut>
+        <ErrorInfo>
+          <Message>Assert.Equal() Failure: Values differ
+Expected: 0
+Actual:   -50</Message>
+          <StackTrace>   at Shop.Tests.CartTests.Discount(Decimal rate) in C:\src\Shop.Tests\CartTests.cs:line 42
+   at System.RuntimeMethodHandle.InvokeMethod(Object target, Void** arguments, Signature sig, Boolean isConstructor)</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="e4" testId="t4" testName="Shop.Tests.Orders.OrderTests+Nested.Skipped" duration="00:00:00" outcome="NotExecuted" />
+  </Results>
+  <TestDefinitions>
+    <UnitTest name="Shop.Tests.CartTests.Add_IncreasesTotal" id="t1"><Execution id="e1" /><TestMethod codeBase="Shop.Tests.dll" className="Shop.Tests.CartTests" name="Add_IncreasesTotal" /></UnitTest>
+    <UnitTest name="Shop.Tests.CartTests.Discount(rate: 0.1)" id="t2"><Execution id="e2" /><TestMethod codeBase="Shop.Tests.dll" className="Shop.Tests.CartTests" name="Discount" /></UnitTest>
+    <UnitTest name="Shop.Tests.CartTests.Discount(rate: 1.5)" id="t3"><Execution id="e3" /><TestMethod codeBase="Shop.Tests.dll" className="Shop.Tests.CartTests" name="Discount" /></UnitTest>
+    <UnitTest name="Shop.Tests.Orders.OrderTests+Nested.Skipped" id="t4"><Execution id="e4" /><TestMethod codeBase="Shop.Tests.dll" className="Shop.Tests.Orders.OrderTests+Nested" name="Skipped" /></UnitTest>
+  </TestDefinitions>
+</TestRun>
