@@ -1,8 +1,8 @@
 {
-  "container.title": "C# Tests",
+  "container.title": "Readable Tests",
   "view.tests": "Tests",
   "view.details": "Details",
-  "command.category": "C# Tests",
+  "command.category": "Readable Tests",
   "command.runAll": "Run All Tests",
   "command.runFailed": "Rerun Failed Tests",
   "command.cancel": "Stop",
@@ -14,7 +14,7 @@
   "command.runNode": "Run",
   "command.goToSource": "Go to Code",
   "command.showOutput": "Show dotnet Output",
-  "config.title": "C# Test Viewer",
+  "config.title": "Readable Tests",
   "config.dotnetPath": "Path to the dotnet executable.",
   "config.extraArgs": "VSTest: extra arguments passed to `dotnet test --no-build`.",
   "config.projectExclude": "Glob pattern excluded when searching for test projects.",
@@ -33,7 +33,11 @@
   "config.build.auto": "Build only if a file changed since the last successful build",
   "config.build.always": "Build before every run",
   "config.build.never": "Never build (you build yourself)",
-  "displayName": "C# Test Viewer",
-  "description": "Readable .NET test results: TUnit / Microsoft.Testing.Platform, xUnit, NUnit, MSTest. Expected/actual diff, code excerpt, clean stack traces, inline errors, fast runs.",
-  "capabilities.untrusted": "Runs dotnet build and the test binaries from this workspace: only enabled in trusted workspaces."
+  "displayName": "Readable Tests",
+  "description": "Readable test results for .NET and JavaScript: TUnit / Microsoft.Testing.Platform, xUnit, NUnit, MSTest, Vitest, Jest, Angular CLI. Expected/actual diff, code excerpt, clean stack traces, inline errors, fast runs.",
+  "capabilities.untrusted": "Runs dotnet build and the test binaries from this workspace: only enabled in trusted workspaces.",
+  "config.nodePath": "Path to the node executable used to run Vitest, Jest and the Angular CLI.",
+  "config.vitest.extraArgs": "Vitest: extra arguments passed to `vitest run`.",
+  "config.jest.extraArgs": "Jest: extra arguments passed to `jest`.",
+  "config.angular.extraArgs": "Angular CLI: extra arguments passed to `ng test` (e.g. [\"--browsers=chromiumHeadless\"])."
 }

@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { summarizeFailure } from './errorFormat';
+import { summarizeResult } from './errorFormat';
 import { buildTree, FilterOptions, formatDuration, Outcome, TestResult, TreeNode } from './model';
 import { t } from './i18n';
 
@@ -22,10 +22,10 @@ export class TestTreeProvider implements vscode.TreeDataProvider<TreeNode> {
   filter: FilterOptions = { failedOnly: false };
   runningProjects = new Set<string>();
 
-  constructor(private projects: () => string[], private results: () => TestResult[], private projectInfo: (p: string) => string | undefined = () => undefined) {}
+  constructor(private projects: () => string[], private results: () => TestResult[], private projectInfo: (p: string) => string | undefined = () => undefined, private projectLabel?: (p: string) => string) {}
 
   refresh(): void {
-    this.roots = buildTree(this.projects(), this.results(), this.filter);
+    this.roots = buildTree(this.projects(), this.results(), this.filter, this.projectLabel);
     this.parents.clear();
     this.byId.clear();
     const index = (n: TreeNode, parent?: TreeNode) => {
@@ -58,7 +58,7 @@ export class TestTreeProvider implements vscode.TreeDataProvider<TreeNode> {
     const parts: string[] = [];
     if (n.description) { parts.push(n.description); }
     if (n.kind === 'project') { const info = this.projectInfo(n.project); if (info) { parts.push(info); } }
-    if (n.result?.outcome === 'failed' && n.result.message) { parts.push(summarizeFailure(n.result.message)); }
+    if (n.result?.outcome === 'failed' && n.result.message) { parts.push(summarizeResult(n.result)); }
     if (n.durationMs > 0 && outcome !== 'running') { parts.push(formatDuration(n.durationMs)); }
     if (n.kind === 'project' && n.children.length === 0 && outcome !== 'running') { parts.push(t('not run')); }
     item.description = parts.join(' · ');

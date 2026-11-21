@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { summarizeFailure } from './errorFormat';
+import { summarizeResult } from './errorFormat';
 import { TestResult } from './model';
 import { firstUserFrame } from './source';
 import { t } from './i18n';
@@ -46,7 +46,7 @@ export class InlineErrors implements vscode.Disposable {
         byLine.get(i.line)!.push(i.result);
       }
       const decos: vscode.DecorationOptions[] = [...byLine].map(([line, rs]) => {
-        const text = summarizeFailure(rs[0].message) || t('test failed');
+        const text = summarizeResult(rs[0]) || t('test failed');
         const hover = new vscode.MarkdownString();
         for (const r of rs.slice(0, 5)) {
           hover.appendMarkdown(`**✖ ${r.displayName}**\n`);

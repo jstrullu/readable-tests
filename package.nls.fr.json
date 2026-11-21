@@ -1,8 +1,8 @@
 {
-  "container.title": "Tests C#",
+  "container.title": "Readable Tests",
   "view.tests": "Tests",
   "view.details": "Détails",
-  "command.category": "Tests C#",
+  "command.category": "Readable Tests",
   "command.runAll": "Lancer tous les tests",
   "command.runFailed": "Relancer les tests en échec",
   "command.cancel": "Arrêter",
@@ -14,7 +14,7 @@
   "command.runNode": "Lancer",
   "command.goToSource": "Aller au code",
   "command.showOutput": "Afficher la sortie dotnet",
-  "config.title": "C# Test Viewer",
+  "config.title": "Readable Tests",
   "config.dotnetPath": "Chemin de l'exécutable dotnet.",
   "config.extraArgs": "VSTest : arguments supplémentaires passés à `dotnet test --no-build`.",
   "config.projectExclude": "Glob d'exclusion pour la recherche des projets de test.",
@@ -33,7 +33,11 @@
   "config.build.auto": "Build uniquement si un fichier a changé depuis le dernier build réussi",
   "config.build.always": "Build à chaque exécution",
   "config.build.never": "Jamais de build (vous compilez vous-même)",
-  "displayName": "C# Test Viewer",
-  "description": "Résultats de tests .NET lisibles : TUnit / Microsoft.Testing.Platform, xUnit, NUnit, MSTest. Diff attendu/obtenu, extrait de code, stack nettoyée, erreurs dans l'éditeur, exécution rapide.",
-  "capabilities.untrusted": "Exécute dotnet build et les binaires de test de ce workspace : activé uniquement dans les workspaces approuvés."
+  "displayName": "Readable Tests",
+  "description": "Résultats de tests lisibles pour .NET et JavaScript : TUnit / Microsoft.Testing.Platform, xUnit, NUnit, MSTest, Vitest, Jest, Angular CLI. Diff attendu/obtenu, extrait de code, stack nettoyée, erreurs dans l'éditeur, exécution rapide.",
+  "capabilities.untrusted": "Exécute dotnet build et les binaires de test de ce workspace : activé uniquement dans les workspaces approuvés.",
+  "config.nodePath": "Chemin de l'exécutable node utilisé pour Vitest, Jest et Angular CLI.",
+  "config.vitest.extraArgs": "Vitest : arguments supplémentaires passés à `vitest run`.",
+  "config.jest.extraArgs": "Jest : arguments supplémentaires passés à `jest`.",
+  "config.angular.extraArgs": "Angular CLI : arguments supplémentaires passés à `ng test` (ex. [\"--browsers=chromiumHeadless\"])."
 }

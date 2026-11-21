@@ -3,6 +3,9 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { TestResult } from './model';
 import { TestProject } from './projects';
+import { convertReport, ReporterOutput } from './jsResults';
+import { majorVersion, resolveBin } from './nodeProjects';
+import { RunTarget } from './model';
 import { parseTrx } from './trxParser';
 import { t } from './i18n';
 
@@ -32,7 +35,7 @@ function mtpExit(code: number): string | undefined {
 
 const ENV = { DOTNET_CLI_TELEMETRY_OPTOUT: '1', DOTNET_NOLOGO: '1', TESTINGPLATFORM_TELEMETRY_OPTOUT: '1' };
 
-export class DotnetTestRunner {
+export class TestRunner {
   private readonly procs = new Set<ChildProcess>();
   private cancelled = false;
   private readonly runCommands = new Map<string, RunCommand>();
@@ -106,7 +109,7 @@ export class DotnetTestRunner {
     } catch {
       throw new Error(t('MSBuild evaluation failed for {0} (code {1}).', path.basename(project.path), String(res.code)));
     }
-    if (!props.RunCommand) { throw new Error(t('Empty RunCommand for {0}: multi-targeted project? Set csTestViewer.targetFramework.', path.basename(project.path))); }
+    if (!props.RunCommand) { throw new Error(t('Empty RunCommand for {0}: multi-targeted project? Set readableTests.targetFramework.', path.basename(project.path))); }
 
     const cmd: RunCommand = {
       command: props.RunCommand,
@@ -122,7 +125,7 @@ export class DotnetTestRunner {
   /** MTP : lancement direct du binaire de test (pas de MSBuild). */
   async runMtp(project: TestProject, cmd: RunCommand, filterArgs: string[], extraArgs: string[]): Promise<ProjectRunStatus> {
     if (!fs.existsSync(cmd.targetPath)) {
-      return { ok: false, error: t('Test binary not found ({0}). Build first or set csTestViewer.build to "auto".', cmd.targetPath) };
+      return { ok: false, error: t('Test binary not found ({0}). Build first or set readableTests.build to "auto".', cmd.targetPath) };
     }
     const dir = this.newResultsDir(project);
     const args = [...cmd.args, '--results-directory', dir, '--report-trx', '--report-trx-filename', 'results.trx',
@@ -138,6 +141,54 @@ export class DotnetTestRunner {
       '--logger', 'trx', '--results-directory', dir, ...o.filterArgs, ...o.extraArgs];
     const res = await this.exec(o.dotnetPath, args, path.dirname(project.path));
     return this.collect(project, dir, res.code, false);
+  }
+
+  /**
+   * JavaScript : Vitest, Jest ou `ng test` lancés avec node (binaire local, pas de shell) et le reporter
+   * embarqué de l'extension, qui écrit un JSON normalisé dans READABLE_TESTS_OUTPUT.
+   */
+  async runNode(project: TestProject, target: RunTarget, o: { nodePath: string; reportersDir: string; extraArgs: string[] }): Promise<ProjectRunStatus> {
+    const root = project.root!;
+    const dir = this.newResultsDir(project);
+    const output = path.join(dir, 'results.json');
+    const sel = jsSelection(target, root, project);
+
+    let script: { script: string; version: string } | undefined;
+    let args: string[];
+    if (project.runner === 'jest') {
+      script = resolveBin(root, 'jest', 'jest');
+      args = ['--ci', '--testLocationInResults', '--passWithNoTests', '--reporters=default', `--reporters=${path.join(o.reportersDir, 'jest.cjs')}`,
+        ...(sel.pattern ? ['-t', sel.pattern] : []), ...o.extraArgs, ...(sel.files.length ? ['--runTestsByPath', ...sel.files] : [])];
+    } else if (project.runner === 'angular') {
+      script = resolveBin(root, '@angular/cli', 'ng');
+      args = ['test', project.angularProject!, '--no-watch', '--no-progress', '--reporters=default', `--reporters=${path.join(o.reportersDir, 'vitest.mjs')}`,
+        ...sel.files.map(f => `--include=${f}`), ...(sel.pattern ? [`--filter=${sel.pattern}`] : []), ...o.extraArgs];
+    } else {
+      script = resolveBin(root, 'vitest', 'vitest');
+      const withLocation = script && majorVersion(script.version) >= 4 ? ['--includeTaskLocation'] : [];
+      args = ['run', '--reporter=default', `--reporter=${path.join(o.reportersDir, 'vitest.mjs')}`, '--passWithNoTests', ...withLocation,
+        ...(sel.pattern ? ['-t', sel.pattern] : []), ...o.extraArgs, ...sel.files];
+    }
+    if (!script) {
+      fs.rmSync(dir, { recursive: true, force: true });
+      const pkg = project.runner === 'angular' ? '@angular/cli' : project.runner;
+      return { ok: false, error: t('{0} is not installed in {1}: run npm install.', pkg, root) };
+    }
+
+    const res = await this.exec(o.nodePath, [script.script, ...args], root, {
+      env: { READABLE_TESTS_OUTPUT: output, NO_COLOR: '1', FORCE_COLOR: '0', NG_CLI_ANALYTICS: 'false' },
+    });
+    try {
+      if (this.cancelled) { return { ok: false, error: t('Run cancelled.') }; }
+      if (res.code === null) { return { ok: false, error: t('Cannot start "{0}".', o.nodePath) }; }
+      if (!fs.existsSync(output)) { return { ok: false, error: t('No results produced (code {0}): see the output.', res.code) }; }
+      const report = JSON.parse(fs.readFileSync(output, 'utf8')) as ReporterOutput;
+      return { ok: true, results: convertReport(report, project.path, root) };
+    } catch (e) {
+      return { ok: false, error: t('Cannot read results: {0}', (e as Error).message) };
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
   }
 
   private newResultsDir(project: TestProject): string {
@@ -227,4 +278,21 @@ function findTrx(dir: string): string[] {
 
 function quoteForLog(a: string): string {
   return /[\s|;"*()]/.test(a) ? `"${a.replace(/"/g, '\\"')}"` : a;
+}
+
+function escapeRegex(s: string): string { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+
+/**
+ * Fichiers et motif de nom pour une cible JS. Le motif est ancré en fin seulement :
+ * selon les versions, Vitest préfixe le nom complet (espace, nom de fichier…).
+ */
+export function jsSelection(target: RunTarget, root: string, project: Pick<TestProject, 'runner' | 'angularRoot'>): { files: string[]; pattern?: string } {
+  if (target.kind !== 'js') { return { files: [] }; }
+  const base = project.runner === 'angular' ? path.join(root, project.angularRoot ?? '') : root;
+  const files = [...new Set(target.tests.map(x => path.relative(base, x.file).split(path.sep).join('/')))];
+  // Un fichier entier demandé (erreur de chargement) : pas de filtre de nom.
+  if (target.tests.some(x => x.path.length === 0)) { return { files }; }
+  // Séparateur du nom complet : " > " (Vitest ≥ 3/4, Angular) ou espace (Vitest ≤ 2, Jest) → on accepte les deux.
+  const names = [...new Set(target.tests.map(x => x.path.map(escapeRegex).join('(?: > | )')))];
+  return { files, pattern: names.length ? `(?:${names.join('|')})$` : undefined };
 }

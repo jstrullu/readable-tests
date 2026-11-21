@@ -1,5 +1,5 @@
 {
-  "name": "csharp-test-viewer",
+  "name": "readable-tests",
   "displayName": "%displayName%",
   "description": "%description%",
   "version": "0.4.0",
@@ -17,12 +17,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/jstrullu/csharp-test-viewer.git"
+    "url": "https://github.com/jstrullu/readable-tests.git"
   },
   "bugs": {
-    "url": "https://github.com/jstrullu/csharp-test-viewer/issues"
+    "url": "https://github.com/jstrullu/readable-tests/issues"
   },
-  "homepage": "https://github.com/jstrullu/csharp-test-viewer#readme",
+  "homepage": "https://github.com/jstrullu/readable-tests#readme",
   "engines": {
     "vscode": "^1.90.0"
   },
@@ -35,16 +35,18 @@
     "nunit",
     "mstest",
     "dotnet",
-    ".net",
     "csharp",
-    "c#",
+    "vitest",
+    "jest",
+    "angular",
+    "javascript",
+    "typescript",
     "test",
     "testing",
     "unit test",
     "test explorer",
     "test results",
     "microsoft testing platform",
-    "mtp",
     "trx"
   ],
   "extensionKind": [
@@ -58,7 +60,8 @@
     "virtualWorkspaces": false
   },
   "activationEvents": [
-    "workspaceContains:**/*.csproj"
+    "workspaceContains:**/*.csproj",
+    "workspaceContains:**/package.json"
   ],
   "main": "./dist/extension.js",
   "l10n": "./l10n",
@@ -66,20 +69,20 @@
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "csTestViewer",
+          "id": "readableTests",
           "title": "%container.title%",
           "icon": "media/icon.svg"
         }
       ]
     },
     "views": {
-      "csTestViewer": [
+      "readableTests": [
         {
-          "id": "csTestViewer.tree",
+          "id": "readableTests.tree",
           "name": "%view.tests%"
         },
         {
-          "id": "csTestViewer.details",
+          "id": "readableTests.details",
           "name": "%view.details%",
           "type": "webview"
         }
@@ -87,67 +90,67 @@
     },
     "commands": [
       {
-        "command": "csTestViewer.runAll",
+        "command": "readableTests.runAll",
         "title": "%command.runAll%",
         "icon": "$(run-all)",
         "category": "%command.category%"
       },
       {
-        "command": "csTestViewer.runFailed",
+        "command": "readableTests.runFailed",
         "title": "%command.runFailed%",
         "icon": "$(debug-rerun)",
         "category": "%command.category%"
       },
       {
-        "command": "csTestViewer.cancel",
+        "command": "readableTests.cancel",
         "title": "%command.cancel%",
         "icon": "$(debug-stop)",
         "category": "%command.category%"
       },
       {
-        "command": "csTestViewer.refresh",
+        "command": "readableTests.refresh",
         "title": "%command.refresh%",
         "icon": "$(refresh)",
         "category": "%command.category%"
       },
       {
-        "command": "csTestViewer.filter",
+        "command": "readableTests.filter",
         "title": "%command.filter%",
         "icon": "$(filter)",
         "category": "%command.category%"
       },
       {
-        "command": "csTestViewer.clearFilter",
+        "command": "readableTests.clearFilter",
         "title": "%command.clearFilter%",
         "icon": "$(clear-all)",
         "category": "%command.category%"
       },
       {
-        "command": "csTestViewer.showFailedOnly",
+        "command": "readableTests.showFailedOnly",
         "title": "%command.showFailedOnly%",
         "icon": "$(error)",
         "category": "%command.category%"
       },
       {
-        "command": "csTestViewer.showAll",
+        "command": "readableTests.showAll",
         "title": "%command.showAll%",
         "icon": "$(list-tree)",
         "category": "%command.category%"
       },
       {
-        "command": "csTestViewer.runNode",
+        "command": "readableTests.runNode",
         "title": "%command.runNode%",
         "icon": "$(play)",
         "category": "%command.category%"
       },
       {
-        "command": "csTestViewer.goToSource",
+        "command": "readableTests.goToSource",
         "title": "%command.goToSource%",
         "icon": "$(go-to-file)",
         "category": "%command.category%"
       },
       {
-        "command": "csTestViewer.showOutput",
+        "command": "readableTests.showOutput",
         "title": "%command.showOutput%",
         "icon": "$(output)",
         "category": "%command.category%"
@@ -156,70 +159,70 @@
     "menus": {
       "view/title": [
         {
-          "command": "csTestViewer.runAll",
-          "when": "view == csTestViewer.tree && !csTestViewer.running",
+          "command": "readableTests.runAll",
+          "when": "view == readableTests.tree && !readableTests.running",
           "group": "navigation@1"
         },
         {
-          "command": "csTestViewer.runFailed",
-          "when": "view == csTestViewer.tree && !csTestViewer.running",
+          "command": "readableTests.runFailed",
+          "when": "view == readableTests.tree && !readableTests.running",
           "group": "navigation@2"
         },
         {
-          "command": "csTestViewer.cancel",
-          "when": "view == csTestViewer.tree && csTestViewer.running",
+          "command": "readableTests.cancel",
+          "when": "view == readableTests.tree && readableTests.running",
           "group": "navigation@1"
         },
         {
-          "command": "csTestViewer.showFailedOnly",
-          "when": "view == csTestViewer.tree && !csTestViewer.failedOnly",
+          "command": "readableTests.showFailedOnly",
+          "when": "view == readableTests.tree && !readableTests.failedOnly",
           "group": "navigation@3"
         },
         {
-          "command": "csTestViewer.showAll",
-          "when": "view == csTestViewer.tree && csTestViewer.failedOnly",
+          "command": "readableTests.showAll",
+          "when": "view == readableTests.tree && readableTests.failedOnly",
           "group": "navigation@3"
         },
         {
-          "command": "csTestViewer.filter",
-          "when": "view == csTestViewer.tree",
+          "command": "readableTests.filter",
+          "when": "view == readableTests.tree",
           "group": "navigation@4"
         },
         {
-          "command": "csTestViewer.clearFilter",
-          "when": "view == csTestViewer.tree && csTestViewer.hasFilter",
+          "command": "readableTests.clearFilter",
+          "when": "view == readableTests.tree && readableTests.hasFilter",
           "group": "navigation@5"
         },
         {
-          "command": "csTestViewer.refresh",
-          "when": "view == csTestViewer.tree",
+          "command": "readableTests.refresh",
+          "when": "view == readableTests.tree",
           "group": "overflow@1"
         },
         {
-          "command": "csTestViewer.showOutput",
-          "when": "view == csTestViewer.tree",
+          "command": "readableTests.showOutput",
+          "when": "view == readableTests.tree",
           "group": "overflow@2"
         }
       ],
       "view/item/context": [
         {
-          "command": "csTestViewer.runNode",
-          "when": "view == csTestViewer.tree && !csTestViewer.running",
+          "command": "readableTests.runNode",
+          "when": "view == readableTests.tree && !readableTests.running",
           "group": "inline@1"
         },
         {
-          "command": "csTestViewer.goToSource",
-          "when": "view == csTestViewer.tree && viewItem =~ /^(test|case|class)$/",
+          "command": "readableTests.goToSource",
+          "when": "view == readableTests.tree && viewItem =~ /^(test|case|class)$/",
           "group": "inline@2"
         }
       ],
       "commandPalette": [
         {
-          "command": "csTestViewer.runNode",
+          "command": "readableTests.runNode",
           "when": "false"
         },
         {
-          "command": "csTestViewer.goToSource",
+          "command": "readableTests.goToSource",
           "when": "false"
         }
       ]
@@ -227,12 +230,12 @@
     "configuration": {
       "title": "%config.title%",
       "properties": {
-        "csTestViewer.dotnetPath": {
+        "readableTests.dotnetPath": {
           "type": "string",
           "default": "dotnet",
           "description": "%config.dotnetPath%"
         },
-        "csTestViewer.extraArgs": {
+        "readableTests.extraArgs": {
           "type": "array",
           "items": {
             "type": "string"
@@ -240,17 +243,17 @@
           "default": [],
           "description": "%config.extraArgs%"
         },
-        "csTestViewer.projectExclude": {
+        "readableTests.projectExclude": {
           "type": "string",
           "default": "**/{bin,obj,node_modules,.git}/**",
           "description": "%config.projectExclude%"
         },
-        "csTestViewer.revealFailures": {
+        "readableTests.revealFailures": {
           "type": "boolean",
           "default": true,
           "description": "%config.revealFailures%"
         },
-        "csTestViewer.runner": {
+        "readableTests.runner": {
           "type": "string",
           "enum": [
             "auto",
@@ -265,7 +268,7 @@
           ],
           "description": "%config.runner%"
         },
-        "csTestViewer.mtp.extraArgs": {
+        "readableTests.mtp.extraArgs": {
           "type": "array",
           "items": {
             "type": "string"
@@ -273,17 +276,17 @@
           "default": [],
           "description": "%config.mtp.extraArgs%"
         },
-        "csTestViewer.targetFramework": {
+        "readableTests.targetFramework": {
           "type": "string",
           "default": "",
           "description": "%config.targetFramework%"
         },
-        "csTestViewer.inlineErrors": {
+        "readableTests.inlineErrors": {
           "type": "boolean",
           "default": true,
           "description": "%config.inlineErrors%"
         },
-        "csTestViewer.build": {
+        "readableTests.build": {
           "type": "string",
           "enum": [
             "auto",
@@ -298,12 +301,12 @@
           ],
           "description": "%config.build%"
         },
-        "csTestViewer.configuration": {
+        "readableTests.configuration": {
           "type": "string",
           "default": "Debug",
           "description": "%config.configuration%"
         },
-        "csTestViewer.buildArgs": {
+        "readableTests.buildArgs": {
           "type": "array",
           "items": {
             "type": "string"
@@ -311,10 +314,39 @@
           "default": [],
           "description": "%config.buildArgs%"
         },
-        "csTestViewer.parallelProjects": {
+        "readableTests.parallelProjects": {
           "type": "boolean",
           "default": true,
           "description": "%config.parallelProjects%"
+        },
+        "readableTests.nodePath": {
+          "type": "string",
+          "default": "node",
+          "description": "%config.nodePath%"
+        },
+        "readableTests.vitest.extraArgs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "%config.vitest.extraArgs%"
+        },
+        "readableTests.jest.extraArgs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "%config.jest.extraArgs%"
+        },
+        "readableTests.angular.extraArgs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "%config.angular.extraArgs%"
         }
       }
     }

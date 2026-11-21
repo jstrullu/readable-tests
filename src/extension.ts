@@ -1,27 +1,29 @@
 import * as os from 'os';
+import * as path from 'path';
 import * as vscode from 'vscode';
 import { BuildTracker, buildSettings, pickSolution, pool } from './buildTracker';
 import { InlineErrors } from './decorations';
 import { DetailsView } from './details';
-import { filterArgs, formatDuration, fullyQualifiedName, projectName, resultKey, RunTarget, summarize, TestResult, TreeNode } from './model';
-import { inspectProject, Runner, TestProject } from './projects';
-import { DotnetTestRunner } from './runner';
-import { clearSourceCache, goToTest, openLocation, readSnippet, resolveSource } from './source';
+import { filterArgs, formatDuration, fullyQualifiedName, jsFullName, projectName, resultKey, RunTarget, summarize, TestResult, TreeNode } from './model';
+import { inspectProject, isNodeRunner, Runner, TestProject } from './projects';
+import { TestRunner } from './runner';
+import { inspectNodeFolder } from './nodeProjects';
+import { clearSourceCache, goToJsTest, goToTest, openLocation, readSnippet, resolveSource } from './source';
 import { ResultStore } from './store';
 import { TestTreeProvider } from './tree';
 import { setTranslator, t } from './i18n';
 
-const STATE_KEY = 'csTestViewer.results.v1';
+const STATE_KEY = 'readableTests.results.v1';
 /** Au-delà, la ligne de commande devient trop longue (limite Windows ~32k) : on relance le projet entier. */
 const MAX_FILTER_LENGTH = 8000;
 
 export function activate(context: vscode.ExtensionContext): void {
   setTranslator((message, args) => vscode.l10n.t(message, ...args));
-  const output = vscode.window.createOutputChannel('C# Tests');
+  const output = vscode.window.createOutputChannel('Readable Tests');
   const storage = (context.storageUri ?? context.globalStorageUri).fsPath;
-  const runner = new DotnetTestRunner(output, `${storage}/runs`);
+  const runner = new TestRunner(output, `${storage}/runs`);
   const store = new ResultStore(context.workspaceState.get<TestResult[]>(STATE_KEY, []));
-  const config = () => vscode.workspace.getConfiguration('csTestViewer');
+  const config = () => vscode.workspace.getConfiguration('readableTests');
   const projects = new Map<string, TestProject>();
   const tracker = new BuildTracker();
   let lastTiming: string | undefined;
@@ -29,15 +31,18 @@ export function activate(context: vscode.ExtensionContext): void {
 
   const tree = new TestTreeProvider(() => [...projects.keys()], () => store.all(), p => {
     const info = projects.get(p);
-    return info ? `${info.framework === 'unknown' ? '' : info.framework + ' · '}${info.runner}` : undefined;
-  });
-  const treeView = vscode.window.createTreeView('csTestViewer.tree', { treeDataProvider: tree, showCollapseAll: true });
+    if (!info) { return undefined; }
+    if (info.runner === 'angular') { return 'angular · vitest'; }
+    if (isNodeRunner(info.runner)) { return info.runner; }
+    return `${info.framework === 'unknown' ? '' : info.framework + ' · '}${info.runner}`;
+  }, p => projects.get(p)?.label ?? projectName(p));
+  const treeView = vscode.window.createTreeView('readableTests.tree', { treeDataProvider: tree, showCollapseAll: true });
 
   const findResult = (key: string) => store.all().find(r => resultKey(r) === key);
   const details = new DetailsView({
     open: (file, line) => void openLocation(file, line),
     goTo: key => { const r = findResult(key); if (r) { void navigate(r.className, r.methodName, r); } },
-    rerun: key => { const r = findResult(key); if (r) { void run([{ project: r.project, target: { kind: 'methods', fqns: [fullyQualifiedName(r)] } }]); } },
+    rerun: key => { const r = findResult(key); if (r) { void run([{ project: r.project, target: targetFor(r.project, [r]) }]); } },
     copy: key => {
       const r = findResult(key);
       if (!r) { return; }
@@ -53,10 +58,10 @@ export function activate(context: vscode.ExtensionContext): void {
 
   const inline = new InlineErrors(() => config().get<boolean>('inlineErrors', true));
   const status = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 50);
-  status.command = 'csTestViewer.tree.focus';
+  status.command = 'readableTests.tree.focus';
 
   context.subscriptions.push(output, treeView, status, inline,
-    vscode.window.registerWebviewViewProvider('csTestViewer.details', details, { webviewOptions: { retainContextWhenHidden: true } }));
+    vscode.window.registerWebviewViewProvider('readableTests.details', details, { webviewOptions: { retainContextWhenHidden: true } }));
 
   // ---------- Rendu ----------
 
@@ -73,7 +78,7 @@ export function activate(context: vscode.ExtensionContext): void {
       : undefined;
     if (done.length === 0) { status.hide(); return; }
     status.text = `$(beaker) $(pass) ${s.passed}  $(error) ${s.failed}${s.skipped ? `  $(circle-slash) ${s.skipped}` : ''}`;
-    status.tooltip = t('C# tests — elapsed {0} (sum of tests {1})', formatDuration(s.elapsedMs), formatDuration(s.durationMs))
+    status.tooltip = t('Tests — elapsed {0} (sum of tests {1})', formatDuration(s.elapsedMs), formatDuration(s.durationMs))
       + (lastTiming ? '\n' + t('Last run: {0}', lastTiming) : '');
     status.backgroundColor = s.failed > 0 ? new vscode.ThemeColor('statusBarItem.errorBackground') : undefined;
     status.show();
@@ -90,6 +95,11 @@ export function activate(context: vscode.ExtensionContext): void {
     for (const f of files.sort((a, b) => a.fsPath.localeCompare(b.fsPath))) {
       const p = inspectProject(f.fsPath, override);
       if (p) { projects.set(p.path, p); }
+    }
+    // JavaScript : Angular CLI (Vitest), Vitest, Jest
+    const pkgs = await vscode.workspace.findFiles('**/package.json', config().get<string>('projectExclude'));
+    for (const f of pkgs.sort((a, b) => a.fsPath.localeCompare(b.fsPath))) {
+      for (const p of inspectNodeFolder(path.dirname(f.fsPath))) { projects.set(p.path, p); }
     }
     store.retainProjects([...projects.keys()]);
     clearSourceCache();
@@ -119,9 +129,9 @@ export function activate(context: vscode.ExtensionContext): void {
   watcher.onDidDelete(onFsChange);
   watcher.onDidChange(onFsChange);
   context.subscriptions.push(watcher, vscode.workspace.onDidChangeConfiguration(e => {
-    if (e.affectsConfiguration('csTestViewer.runner') || e.affectsConfiguration('csTestViewer.projectExclude')) { void discover(); }
-    if (e.affectsConfiguration('csTestViewer.configuration') || e.affectsConfiguration('csTestViewer.buildArgs') || e.affectsConfiguration('csTestViewer.targetFramework')) { tracker.touch('settings.props'); runner.invalidateRunCommands(); }
-    if (e.affectsConfiguration('csTestViewer.inlineErrors')) { render(); }
+    if (e.affectsConfiguration('readableTests.runner') || e.affectsConfiguration('readableTests.projectExclude')) { void discover(); }
+    if (e.affectsConfiguration('readableTests.configuration') || e.affectsConfiguration('readableTests.buildArgs') || e.affectsConfiguration('readableTests.targetFramework')) { tracker.touch('settings.props'); runner.invalidateRunCommands(); }
+    if (e.affectsConfiguration('readableTests.inlineErrors')) { render(); }
   }));
 
   // ---------- Exécution ----------
@@ -147,7 +157,7 @@ export function activate(context: vscode.ExtensionContext): void {
     const parallel = cfg.get<boolean>('parallelProjects', true) ? Math.max(2, Math.min(4, Math.floor(os.cpus().length / 2))) : 1;
 
     runner.resetCancel();
-    await vscode.commands.executeCommand('setContext', 'csTestViewer.running', true);
+    await vscode.commands.executeCommand('setContext', 'readableTests.running', true);
     output.appendLine(`\n===== ${new Date().toLocaleTimeString()} =====`);
     const t0 = Date.now();
     const timing: string[] = [];
@@ -164,9 +174,10 @@ export function activate(context: vscode.ExtensionContext): void {
     };
 
     try {
-      await vscode.window.withProgress({ location: { viewId: 'csTestViewer.tree' } }, async () => {
+      await vscode.window.withProgress({ location: { viewId: 'readableTests.tree' } }, async () => {
         // 1. Build : une seule invocation MSBuild, et seulement si quelque chose a changé.
-        const wanted = [...new Set(jobs.map(j => j.project))];
+        // Les projets JavaScript n'ont pas de build préalable (Vitest/Jest transpilent, ng test compile lui-même).
+        const wanted = [...new Set(jobs.map(j => j.project))].filter(p => !isNodeRunner(projects.get(p)!.runner));
         const toBuild = buildMode === 'never' ? [] : buildMode === 'always' ? wanted : wanted.filter(p => !tracker.isBuilt(p));
         if (toBuild.length) {
           const tb = Date.now();
@@ -190,7 +201,7 @@ export function activate(context: vscode.ExtensionContext): void {
             return;
           }
           tracker.markBuilt(toBuild, gen, restore);
-        } else {
+        } else if (wanted.length) {
           timing.push(t('build skipped (no changes)'));
         }
 
@@ -201,11 +212,17 @@ export function activate(context: vscode.ExtensionContext): void {
           const project = projects.get(job.project)!;
           let target = job.target;
           let fArgs = filterArgs(project.runner, project.framework, target);
-          if (fArgs.join(' ').length > MAX_FILTER_LENGTH) { target = { kind: 'all' }; fArgs = []; }
+          if (fArgs.join(' ').length > MAX_FILTER_LENGTH || JSON.stringify(target).length > MAX_FILTER_LENGTH) { target = { kind: 'all' }; fArgs = []; }
 
           let res;
           try {
-            res = project.runner === 'mtp'
+            res = isNodeRunner(project.runner)
+              ? await runner.runNode(project, target, {
+                nodePath: cfg.get<string>('nodePath', 'node'),
+                reportersDir: context.asAbsolutePath('reporters'),
+                extraArgs: cfg.get<string[]>(`${project.runner}.extraArgs`, []),
+              })
+              : project.runner === 'mtp'
               ? await runner.runMtp(project, await runner.resolveRunCommand(project, { dotnetPath, configuration, framework: tfmOf(project) }), fArgs, cfg.get<string[]>('mtp.extraArgs', []))
               : await runner.runVstest(project, { dotnetPath, configuration, framework: tfmOf(project), filterArgs: fArgs, extraArgs: cfg.get<string[]>('extraArgs', []) });
           } catch (e) {
@@ -226,7 +243,7 @@ export function activate(context: vscode.ExtensionContext): void {
       });
     } finally {
       tree.runningProjects.clear();
-      await vscode.commands.executeCommand('setContext', 'csTestViewer.running', false);
+      await vscode.commands.executeCommand('setContext', 'readableTests.running', false);
       lastTiming = `${timing.join(' · ')} — ${t('total {0}', formatDuration(Date.now() - t0))}`;
       output.appendLine(`\n⏱ ${lastTiming}`);
       void persist();
@@ -244,7 +261,18 @@ export function activate(context: vscode.ExtensionContext): void {
       }
     }
   };
+  /** Cible d'exécution d'un ensemble de résultats (JS : fichier + nom complet ; .NET : méthodes). */
+  const targetFor = (project: string, results: TestResult[]): RunTarget =>
+    isNodeRunner(projects.get(project)?.runner ?? 'vstest')
+      ? { kind: 'js', tests: results.filter(r => r.file).map(r => r.fileLevel ? { file: r.file!, fullName: '', path: [] } : { file: r.file!, fullName: jsFullName(r), path: [...(r.suite ?? []), r.methodName] }) }
+      : { kind: 'methods', fqns: results.map(fullyQualifiedName) };
+
+  const leaves = (n: TreeNode): TestResult[] => n.result ? [n.result] : n.children.flatMap(leaves);
+
   const jobsFor = (node: TreeNode): Job[] => {
+    if (node.kind !== 'project' && isNodeRunner(projects.get(node.project)?.runner ?? 'vstest')) {
+      return [{ project: node.project, target: targetFor(node.project, leaves(node)) }];
+    }
     switch (node.kind) {
       case 'project': return [{ project: node.project, target: { kind: 'all' } }];
       case 'class': return [{ project: node.project, target: { kind: 'class', className: node.className! } }];
@@ -252,15 +280,15 @@ export function activate(context: vscode.ExtensionContext): void {
     }
   };
 
-  const navigate = async (className: string, methodName?: string, result?: TestResult) => {
-    const ok = await goToTest(className, methodName, result);
+  const navigate = async (className: string, methodName?: string, result?: TestResult, group = false) => {
+    const ok = result?.file ? await goToJsTest(result, group) : await goToTest(className, methodName, result);
     if (!ok) { void vscode.window.showInformationMessage(t('Source not found for {0}.', className + (methodName ? '.' + methodName : ''))); }
   };
 
   const setFilter = async (patch: Partial<typeof tree.filter>) => {
     tree.filter = { ...tree.filter, ...patch };
-    await vscode.commands.executeCommand('setContext', 'csTestViewer.failedOnly', tree.filter.failedOnly);
-    await vscode.commands.executeCommand('setContext', 'csTestViewer.hasFilter', !!tree.filter.text);
+    await vscode.commands.executeCommand('setContext', 'readableTests.failedOnly', tree.filter.failedOnly);
+    await vscode.commands.executeCommand('setContext', 'readableTests.hasFilter', !!tree.filter.text);
     render();
   };
 
@@ -268,25 +296,25 @@ export function activate(context: vscode.ExtensionContext): void {
 
   const cmd = (id: string, fn: (...a: any[]) => unknown) => context.subscriptions.push(vscode.commands.registerCommand(id, fn));
 
-  cmd('csTestViewer.runAll', () => run([...projects.keys()].map(p => ({ project: p, target: { kind: 'all' } }))));
-  cmd('csTestViewer.runFailed', () => {
-    const byProject = new Map<string, string[]>();
+  cmd('readableTests.runAll', () => run([...projects.keys()].map(p => ({ project: p, target: { kind: 'all' } }))));
+  cmd('readableTests.runFailed', () => {
+    const byProject = new Map<string, TestResult[]>();
     for (const r of store.failed()) {
       if (!byProject.has(r.project)) { byProject.set(r.project, []); }
-      byProject.get(r.project)!.push(fullyQualifiedName(r));
+      byProject.get(r.project)!.push(r);
     }
     if (byProject.size === 0) { void vscode.window.showInformationMessage(t('No failed tests.')); return; }
-    return run([...byProject].map(([project, fqns]) => ({ project, target: { kind: 'methods', fqns } })));
+    return run([...byProject].map(([project, rs]) => ({ project, target: targetFor(project, rs) })));
   });
-  cmd('csTestViewer.runNode', (node: TreeNode) => run(jobsFor(node)));
-  cmd('csTestViewer.goToSource', (node: TreeNode) => navigate(node.className!, node.methodName, node.result));
-  cmd('csTestViewer.cancel', () => runner.cancel());
-  cmd('csTestViewer.refresh', () => discover());
-  cmd('csTestViewer.showOutput', () => output.show(true));
-  cmd('csTestViewer.showFailedOnly', () => setFilter({ failedOnly: true }));
-  cmd('csTestViewer.showAll', () => setFilter({ failedOnly: false }));
-  cmd('csTestViewer.clearFilter', () => setFilter({ text: undefined }));
-  cmd('csTestViewer.filter', async () => {
+  cmd('readableTests.runNode', (node: TreeNode) => run(jobsFor(node)));
+  cmd('readableTests.goToSource', (node: TreeNode) => navigate(node.className!, node.methodName, node.result ?? leaves(node)[0], node.kind === 'class'));
+  cmd('readableTests.cancel', () => runner.cancel());
+  cmd('readableTests.refresh', () => discover());
+  cmd('readableTests.showOutput', () => output.show(true));
+  cmd('readableTests.showFailedOnly', () => setFilter({ failedOnly: true }));
+  cmd('readableTests.showAll', () => setFilter({ failedOnly: false }));
+  cmd('readableTests.clearFilter', () => setFilter({ text: undefined }));
+  cmd('readableTests.filter', async () => {
     const text = await vscode.window.showInputBox({ prompt: t('Filter tests (class, method, case)'), value: tree.filter.text ?? '' });
     if (text !== undefined) { await setFilter({ text: text.trim() || undefined }); }
   });

@@ -1,15 +1,25 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
-export type Runner = 'vstest' | 'mtp';
-export type Framework = 'tunit' | 'xunit3' | 'xunit' | 'nunit' | 'mstest' | 'unknown';
+export type Runner = 'vstest' | 'mtp' | 'vitest' | 'jest' | 'angular';
+export type Framework = 'tunit' | 'xunit3' | 'xunit' | 'nunit' | 'mstest' | 'vitest' | 'jest' | 'unknown';
 
 export interface TestProject {
+  /** Identifiant unique : chemin du .csproj, du package.json, ou "angular.json#projet" */
   path: string;
   runner: Runner;
   framework: Framework;
   targetFrameworks: string[];
+  /** JS : répertoire de travail (racine du package / workspace Angular) */
+  root?: string;
+  /** Nom affiché (sinon déduit du chemin) */
+  label?: string;
+  /** Angular : nom du projet dans angular.json et sa racine relative */
+  angularProject?: string;
+  angularRoot?: string;
 }
+
+export function isNodeRunner(r: Runner): boolean { return r === 'vitest' || r === 'jest' || r === 'angular'; }
 
 const TEST_MARKERS = /Microsoft\.NET\.Test\.Sdk|<IsTestProject>\s*true|"(xunit|xunit\.v3|NUnit|MSTest|MSTest\.Sdk|TUnit)[".]|Sdk="MSTest\.Sdk|Include="TUnit/i;
 

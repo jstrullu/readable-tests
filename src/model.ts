@@ -19,6 +19,29 @@ export interface TestResult {
   message?: string;
   stackTrace?: string;
   stdout?: string;
+  // ---- Résultats JavaScript (Vitest / Jest / Angular) ----
+  /** Fichier de test absolu */
+  file?: string;
+  /** Chaîne des describe() */
+  suite?: string[];
+  /** Ligne du test dans le fichier, si connue */
+  line?: number;
+  /** Libellé et détail du nœud de regroupement (remplacent namespace/classe .NET) */
+  groupLabel?: string;
+  groupDescription?: string;
+  /** Erreurs structurées fournies par le reporter (attendu/obtenu déjà séparés) */
+  failures?: StructuredFailure[];
+  /** Pseudo-test représentant une erreur de fichier (chargement, erreur non interceptée) */
+  fileLevel?: boolean;
+}
+
+export interface StructuredFailure {
+  name?: string;
+  message: string;
+  stack?: string;
+  expected?: string;
+  actual?: string;
+  cause?: StructuredFailure;
 }
 
 export interface RunSummary {
@@ -99,7 +122,7 @@ function splitClass(fqn: string): { ns: string; name: string } {
  * Construit l'arbre Projet > Classe > Test (> Cas si plusieurs cas par méthode).
  * Les projets sans résultats sont conservés pour pouvoir les lancer.
  */
-export function buildTree(projects: string[], results: TestResult[], filter: FilterOptions): TreeNode[] {
+export function buildTree(projects: string[], results: TestResult[], filter: FilterOptions, labelOf: (project: string) => string = projectName): TreeNode[] {
   const byProject = new Map<string, TestResult[]>();
   for (const p of projects) { byProject.set(p, []); }
   for (const r of results) {
@@ -110,7 +133,7 @@ export function buildTree(projects: string[], results: TestResult[], filter: Fil
   const filtering = filter.failedOnly || !!filter.text;
   const roots: TreeNode[] = [];
 
-  for (const [project, list] of [...byProject.entries()].sort((a, b) => projectName(a[0]).localeCompare(projectName(b[0])))) {
+  for (const [project, list] of [...byProject.entries()].sort((a, b) => labelOf(a[0]).localeCompare(labelOf(b[0])))) {
     if (filtering && list.length === 0) { continue; }
 
     const classes = new Map<string, Map<string, TestResult[]>>();
@@ -136,11 +159,12 @@ export function buildTree(projects: string[], results: TestResult[], filter: Fil
           testNodes.push({ ...base, id: `${project}::${className}::${methodName}`, kind: 'test', label: methodName, description: t('{0} cases', cases.length), outcome: aggregate(caseNodes.map(c => c.outcome)), ...timing(cases), children: caseNodes });
         }
       }
-      const { ns, name } = splitClass(className);
+      const first = [...methods.values()][0][0];
+      const { ns, name } = first.groupLabel !== undefined ? { ns: first.groupDescription ?? '', name: first.groupLabel } : splitClass(className);
       classNodes.push({ id: `${project}::${className}`, kind: 'class', label: name, description: ns, project, className, outcome: aggregate(testNodes.map(t => t.outcome)), ...timing([...methods.values()].flat()), children: testNodes });
     }
 
-    roots.push({ id: project, kind: 'project', label: projectName(project), project, outcome: aggregate(classNodes.map(c => c.outcome)), ...timing(list), children: classNodes });
+    roots.push({ id: project, kind: 'project', label: labelOf(project), project, outcome: aggregate(classNodes.map(c => c.outcome)), ...timing(list), children: classNodes });
   }
   return roots;
 }
@@ -208,7 +232,17 @@ export function escapeFilterValue(v: string): string {
 export type RunTarget =
   | { kind: 'all' }
   | { kind: 'class'; className: string }
-  | { kind: 'methods'; fqns: string[] };
+  | { kind: 'methods'; fqns: string[] }
+  /**
+   * JavaScript : tests précis. fullName = "describe … test" (identité) ; path = segments pour le motif -t.
+   * fullName vide = tout le fichier (erreur de chargement à relancer).
+   */
+  | { kind: 'js'; tests: { file: string; fullName: string; path: string[] }[] };
+
+/** Nom complet JS tel que filtré par -t / --filter : describe … test, séparés par des espaces. */
+export function jsFullName(r: Pick<TestResult, 'suite' | 'methodName'>): string {
+  return [...(r.suite ?? []), r.methodName].join(' ');
+}
 
 /**
  * Construit l'argument --filter. Retourne undefined pour "tout".
@@ -216,7 +250,7 @@ export type RunTarget =
  */
 export function buildFilter(target: RunTarget): string | undefined {
   switch (target.kind) {
-    case 'all': return undefined;
+    case 'all': case 'js': return undefined;
     case 'class': return `FullyQualifiedName~${escapeFilterValue(target.className + '.')}`;
     case 'methods': {
       // "=" couvre xUnit/MSTest ; "~X(" couvre NUnit dont le FQN des TestCase inclut les arguments.
@@ -252,7 +286,7 @@ function alt(values: string[]): string {
  */
 export function buildTreeNodeFilter(target: RunTarget): string | undefined {
   switch (target.kind) {
-    case 'all': return undefined;
+    case 'all': case 'js': return undefined;
     case 'class': {
       const { ns, cls } = treeNodeSegments(target.className);
       return `/*/${ns || '*'}/${cls}/*`;
@@ -268,8 +302,8 @@ export function buildTreeNodeFilter(target: RunTarget): string | undefined {
 }
 
 /** Arguments de filtre selon le runner et le framework. */
-export function filterArgs(runner: 'vstest' | 'mtp', framework: string, target: RunTarget): string[] {
-  if (target.kind === 'all') { return []; }
+export function filterArgs(runner: string, framework: string, target: RunTarget): string[] {
+  if (target.kind === 'all' || target.kind === 'js') { return []; }
   if (runner === 'mtp' && framework === 'tunit') { return ['--treenode-filter', buildTreeNodeFilter(target)!]; }
   if (runner === 'mtp' && framework === 'xunit3') {
     return target.kind === 'class'

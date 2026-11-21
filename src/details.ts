@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { AssertionBlock, diff, Frame, parseFailure, Segment, summarizeFailure } from './errorFormat';
+import { AssertionBlock, diff, failureOf, Frame, Segment, summarizeResult } from './errorFormat';
 import { formatDuration, summarize, TestResult } from './model';
 import { label } from './tree';
 import { t } from './i18n';
@@ -65,7 +65,7 @@ export class DetailsView implements vscode.WebviewViewProvider {
     <button data-action="copy" data-key="${key}" title="${t('Copy name, message and stack trace')}">${t('Copy')}</button>
   </div>
   <div class="name">${esc(r.displayName)}</div>
-  <div class="dim small">${esc(r.className)}</div>
+  <div class="dim small">${esc(this.where(r))}</div>
 </header>`;
 
     if (r.outcome !== 'failed') {
@@ -74,7 +74,7 @@ export class DetailsView implements vscode.WebviewViewProvider {
         + this.renderOutput(r, true);
     }
 
-    const p = parseFailure(r.message, r.stackTrace);
+    const p = failureOf(r);
     let body = '';
 
     if (p.assertions.length) {
@@ -105,7 +105,7 @@ export class DetailsView implements vscode.WebviewViewProvider {
     }
 
     if (p.sections.length) {
-      body += section(t('Call stack'), p.sections.map(s => this.renderSection(s.title, s.frames)).join(''));
+      body += section(t('Call stack'), p.sections.map(s => this.renderSection(s.title, s.frames, s.cause)).join(''));
     }
 
     body += this.renderOutput(r, false);
@@ -113,7 +113,14 @@ export class DetailsView implements vscode.WebviewViewProvider {
     return head + body;
   }
 
-  private renderSection(title: string | undefined, frames: Frame[]): string {
+  /** Emplacement du test : classe .NET, ou fichier › describe pour JS. */
+  private where(r: TestResult): string {
+    if (!r.file) { return r.className; }
+    const file = this.host.relative(r.file);
+    return r.suite?.length ? `${file} › ${r.suite.join(' › ')}` : file;
+  }
+
+  private renderSection(title: string | undefined, frames: Frame[], cause = false): string {
     const user = frames.filter(f => f.file && this.host.resolve(f.file));
     const other = frames.filter(f => !user.includes(f));
     const row = (f: Frame) => {
@@ -123,15 +130,16 @@ export class DetailsView implements vscode.WebviewViewProvider {
         : f.file ? `<span class="dim">${esc(baseName(f.file))}:${f.line ?? ''}</span>` : '';
       return `<div class="frame${local ? ' user' : ''}" title="${esc(f.fullMethod)}"><span class="m">${esc(f.method)}</span>${loc}</div>`;
     };
-    return `${title ? `<div class="sub-title">${esc(t('Inner exception: {0}', shortType(title)))}</div>` : ''}
+    return `${title ? `<div class="sub-title">${esc(cause ? t('Caused by: {0}', shortType(title)) : t('Inner exception: {0}', shortType(title)))}</div>` : ''}
 ${user.map(row).join('')}
 ${other.length ? `<details><summary class="dim">${t('{0} framework / external frame(s)', other.length)}</summary>${other.map(row).join('')}</details>` : ''}`;
   }
 
   private renderOutput(r: TestResult, open: boolean): string {
-    if (!r.stdout) { return ''; }
-    const n = r.stdout.split(/\r?\n/).length;
-    return `<details class="out"${open || n <= 8 ? ' open' : ''}><summary>${t('Output')} <span class="dim">(${t('{0} line(s)', n)})</span></summary><pre class="plain">${esc(r.stdout)}</pre></details>`;
+    const stdout = r.stdout?.replace(/\s+$/, '');
+    if (!stdout) { return ''; }
+    const n = stdout.split(/\r?\n/).length;
+    return `<details class="out"${open || n <= 8 ? ' open' : ''}><summary>${t('Output')} <span class="dim">(${t('{0} line(s)', n)})</span></summary><pre class="plain">${esc(stdout)}</pre></details>`;
   }
 
   renderSummary(): string {
@@ -140,7 +148,7 @@ ${other.length ? `<details><summary class="dim">${t('{0} framework / external fr
       return `<p class="dim">${t('No results yet. Run the tests with ▶ in the view toolbar.')}</p>`;
     }
     const s = summarize(all);
-    const link = (r: TestResult) => `<a href="#" data-action="goto" data-key="${esc(this.host.keyOf(r))}">${esc(r.className.split('.').pop() + '.' + r.methodName)}</a>`;
+    const link = (r: TestResult) => `<a href="#" data-action="goto" data-key="${esc(this.host.keyOf(r))}">${esc(r.file ? `${r.groupLabel} › ${r.methodName}` : r.className.split('.').pop() + '.' + r.methodName)}</a>`;
     const failed = all.filter(r => r.outcome === 'failed').slice(0, 50);
     const slow = [...all].sort((a, b) => b.durationMs - a.durationMs).slice(0, 5);
     return `
@@ -150,7 +158,7 @@ ${other.length ? `<details><summary class="dim">${t('{0} framework / external fr
   <div class="kpi skipped"><b>${s.skipped}</b>${t('skipped')}</div>
   <div class="kpi" title="${esc(t('Sum of test durations: {0}', formatDuration(s.durationMs)))}"><b>${formatDuration(s.elapsedMs)}</b>${t('elapsed')}</div>
 </div>
-${failed.length ? section(t('Failures'), failed.map(r => `<div class="fail-item">${link(r)}<div class="dim small">${esc(summarizeFailure(r.message))}</div></div>`).join('')) : ''}
+${failed.length ? section(t('Failures'), failed.map(r => `<div class="fail-item">${link(r)}<div class="dim small">${esc(summarizeResult(r))}</div></div>`).join('')) : ''}
 ${section(t('Slowest'), slow.map(r => `<div class="frame">${link(r)}<span class="dim">${formatDuration(r.durationMs)}</span></div>`).join(''))}`;
   }
 }

@@ -34,11 +34,11 @@ jobs:
             exit 1
           fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
-      - run: npx vsce package --no-dependencies -o csharp-test-viewer.vsix
+      - run: npx vsce package --no-dependencies -o readable-tests.vsix
       - uses: actions/upload-artifact@v4
         with:
           name: vsix
-          path: csharp-test-viewer.vsix
+          path: readable-tests.vsix
 
   marketplace:
     needs: build
@@ -57,7 +57,7 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: vsix
-      - run: npx vsce publish --oidc --packagePath csharp-test-viewer.vsix
+      - run: npx vsce publish --oidc --packagePath readable-tests.vsix
 
   openvsx:
     needs: build
@@ -81,10 +81,10 @@ jobs:
           OVSX_PAT: ${{ secrets.OVSX_PAT }}
         run: |
           if [ -n "$OVSX_PAT" ]; then
-            npx ovsx publish csharp-test-viewer.vsix -p "$OVSX_PAT"
+            npx ovsx publish readable-tests.vsix -p "$OVSX_PAT"
           else
             unset OVSX_PAT
-            npx ovsx publish csharp-test-viewer.vsix --trusted-publishing
+            npx ovsx publish readable-tests.vsix --trusted-publishing
           fi
 
   github-release:
@@ -101,7 +101,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          mv csharp-test-viewer.vsix "csharp-test-viewer-${{ needs.build.outputs.version }}.vsix"
+          mv readable-tests.vsix "readable-tests-${{ needs.build.outputs.version }}.vsix"
           notes=$(awk -v v="${{ needs.build.outputs.version }}" '$0 ~ "^## \\[" v "\\]" {f=1; next} /^## \[/ {f=0} f' CHANGELOG.md)
-          gh release create "$GITHUB_REF_NAME" "csharp-test-viewer-${{ needs.build.outputs.version }}.vsix" \
+          gh release create "$GITHUB_REF_NAME" "readable-tests-${{ needs.build.outputs.version }}.vsix" \
             --title "$GITHUB_REF_NAME" --notes "${notes:-See CHANGELOG.md}"

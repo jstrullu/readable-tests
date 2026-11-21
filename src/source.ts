@@ -13,6 +13,8 @@ const cache = new Map<string, string | undefined>();
 export function resolveSource(file: string): string | undefined {
   if (cache.has(file)) { return cache.get(file); }
   let resolved: string | undefined;
+  // Dépendances JS : jamais considérées comme du code utilisateur.
+  if (/[\\/]node_modules[\\/]/.test(file)) { cache.set(file, undefined); return undefined; }
   const inWs = (p: string) => !!vscode.workspace.getWorkspaceFolder(vscode.Uri.file(p)) && fs.existsSync(p);
   if (inWs(file)) {
     resolved = file;
@@ -98,3 +100,26 @@ export async function goToTest(className: string, methodName: string | undefined
 }
 
 function escapeRegex(s: string): string { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+
+/**
+ * Test JavaScript : ligne de l'assertion en échec (stack), sinon emplacement fourni par le runner,
+ * sinon recherche de it()/test()/describe() dans le fichier, sinon début du fichier.
+ */
+export async function goToJsTest(r: TestResult, group: boolean): Promise<boolean> {
+  if (!r.file || !fs.existsSync(r.file)) { return false; }
+  if (!group) {
+    const frame = firstUserFrame(r);
+    if (frame && path.resolve(frame.local) === path.resolve(r.file)) { await openLocation(frame.local, frame.line); return true; }
+    if (r.line) { await openLocation(r.file, r.line); return true; }
+  }
+  const lines = fs.readFileSync(r.file, 'utf8').split(/\r?\n/);
+  const title = group ? r.suite?.[r.suite.length - 1] : r.methodName;
+  const fn = group ? '(?:describe|suite|context)' : '(?:it|test|specify)';
+  if (title) {
+    const re = new RegExp(`\\b${fn}(?:\\.\\w+)*\\(\\s*(['"\`])${escapeRegex(title)}\\1`);
+    const idx = lines.findIndex(l => re.test(l));
+    if (idx >= 0) { await openLocation(r.file, idx + 1); return true; }
+  }
+  await openLocation(r.file, 1);
+  return true;
+}

@@ -1,4 +1,5 @@
 import { t } from './i18n';
+import type { TestResult } from './model';
 // Mise en forme lisible des échecs. Module pur (aucune dépendance vscode).
 
 export interface AssertionBlock {
@@ -27,7 +28,7 @@ export interface Frame {
   line?: number;
 }
 
-export interface StackSection { title?: string; frames: Frame[] }
+export interface StackSection { title?: string; frames: Frame[]; /** Cause JavaScript (Error.cause) plutôt qu'exception interne .NET */ cause?: boolean }
 
 export interface ParsedFailure {
   /** Première ligne significative, pour les résumés */
@@ -53,10 +54,50 @@ export function parseFailure(message = '', stack = ''): ParsedFailure {
   };
 }
 
+/**
+ * Échec d'un résultat : erreurs structurées des reporters JS si présentes
+ * (attendu/obtenu déjà séparés, causes), sinon analyse du message texte (.NET).
+ */
+export function failureOf(r: Pick<TestResult, 'message' | 'stackTrace' | 'failures'>): ParsedFailure {
+  if (!r.failures?.length) { return parseFailure(r.message, r.stackTrace); }
+  const assertions: AssertionBlock[] = [];
+  const mains: string[] = [];
+  const inner: InnerException[] = [];
+  const sections: StackSection[] = [];
+  r.failures.forEach((f, i) => {
+    const msg = f.message.replace(/^(?:Error|AssertionError|JestAssertionError): /, '').trim();
+    const first = firstLine(msg);
+    if (f.expected !== undefined && f.actual !== undefined) {
+      // Jest : 1re ligne = "expect(received).toEqual(expected) // …" ; le diff texte qui suit est remplacé par le nôtre.
+      const isExpr = /^expect\(/.test(first);
+      assertions.push({ expectation: first, actual: '', expression: isExpr ? first : undefined, expected: f.expected, found: f.actual });
+    } else {
+      const parsed = parseAssertions(msg);
+      if (parsed.length) { assertions.push(...parsed); } else { mains.push((f.name && f.name !== 'Error' && f.name !== 'AssertionError' ? `${f.name}: ` : '') + msg); }
+    }
+    for (let c = f.cause; c; c = c.cause) {
+      inner.push({ type: c.name ?? 'Error', message: c.message });
+      if (c.stack) { sections.push(...parseStack(c.stack).map(s => ({ ...s, title: s.title ?? c!.name ?? 'Error', cause: true }))); }
+    }
+    if (i === 0 && f.stack) { sections.unshift(...parseStack(f.stack)); }
+  });
+  const main = mains.join('\n\n');
+  return { headline: firstLine(main) || assertions[0]?.expectation || inner[0]?.message || '', main, assertions, inner, sections };
+}
+
+/** Résumé sur une ligne d'un résultat (structuré ou texte). */
+export function summarizeResult(r: Pick<TestResult, 'message' | 'stackTrace' | 'failures'>): string {
+  if (!r.failures?.length) { return summarizeFailure(r.message); }
+  return summarizeParsed(failureOf(r));
+}
+
 /** Résumé sur une ligne : "Attendu 80 · obtenu 100" ou première ligne du message. */
 export function summarizeFailure(message?: string): string {
   if (!message) { return ''; }
-  const p = parseFailure(message);
+  return summarizeParsed(parseFailure(message));
+}
+
+function summarizeParsed(p: ParsedFailure): string {
   const a = p.assertions[0];
   if (a?.expected !== undefined && a.found !== undefined) {
     const s = t('expected {0} · got {1}', oneLine(a.expected), oneLine(a.found));
@@ -126,6 +167,9 @@ function parseClassic(main: string): AssertionBlock[] | undefined {
   if (m && !/^\s*Expected:/.test(headline)) {
     return [{ expectation: headline, actual: '', expected: stripMarkers(m[1]), found: stripMarkers(m[2]) }];
   }
+  // Jest (sans valeurs structurées) : "Expected: X" / "Received: Y"
+  m = /^\s*Expected[^:\n]*:[ \t]*([\s\S]*?)\n\s*Received[^:\n]*:[ \t]*([\s\S]*?)(?:\n\s*\n|$)/m.exec(text);
+  if (m) { return [{ expectation: headline, actual: '', expected: stripMarkers(m[1]), found: stripMarkers(m[2]) }]; }
   // NUnit : "Expected: X" / "But was:  Y"
   m = /Expected:[ \t]*([\s\S]*?)\n\s*But was:[ \t]*([\s\S]*?)(?:\n\s*\n|$)/i.exec(text);
   if (m) { return [{ expectation: headline, actual: '', expected: stripMarkers(m[1]), found: stripMarkers(m[2]) }]; }
@@ -145,6 +189,14 @@ function stripMarkers(s: string): string {
 // ---------- Stack trace ----------
 
 const FRAME = /^\s*(?:at|à|en|bei|в)\s+(.+?)(?:\s+(?:in|dans|en|in der Datei|в)\s+(.+?):(?:line|ligne|línea|Zeile|строка)\s+(\d+))?\s*$/;
+/** JavaScript : "at fn (fichier:ligne:col)" ou "at fichier:ligne:col" (chemins absolus, file://, node:). */
+const JS_FRAME = /^\s*at\s+(?:(?:async\s+)?(.+?)\s+\((.+?):(\d+):\d+\)|(?:async\s+)?((?:file:\/\/|\/|[A-Za-z]:[\\/]|node:)[^()]*?):(\d+):\d+)\s*$/;
+
+function jsPath(p: string): string {
+  if (!p.startsWith('file://')) { return p; }
+  const decoded = decodeURIComponent(p.replace(/^file:\/\//, ''));
+  return /^\/[A-Za-z]:\//.test(decoded) ? decoded.substring(1) : decoded; // file:///C:/x → C:/x
+}
 
 export function parseStack(stack: string): StackSection[] {
   const sections: StackSection[] = [{ frames: [] }];
@@ -153,8 +205,19 @@ export function parseStack(stack: string): StackSection[] {
     const inner = /^\s*--- Inner exception stack trace \((.+)\) ---\s*$/.exec(l);
     if (inner) { sections.push({ title: inner[1], frames: [] }); continue; }
     if (/^\s*---.*---\s*$/.test(l)) { continue; } // "End of stack trace from previous location", etc.
+    const js = JS_FRAME.exec(l);
+    if (js) {
+      const file = jsPath(js[2] ?? js[4]);
+      const fullMethod = (js[1] ?? '<anonymous>').replace(/^Object\.<anonymous>$/, '<anonymous>');
+      sections[sections.length - 1].frames.push({ raw: l.trim(), fullMethod, method: shortMethod(fullMethod), file, line: parseInt(js[3] ?? js[5], 10) });
+      continue;
+    }
     const m = FRAME.exec(l);
-    if (!m) { sections[sections.length - 1].frames.push({ raw: l.trim(), method: l.trim(), fullMethod: l.trim() }); continue; }
+    if (!m) {
+      // Lignes de message avant la première frame (stacks JS) : ignorées.
+      if (sections[sections.length - 1].frames.length > 0) { sections[sections.length - 1].frames.push({ raw: l.trim(), method: l.trim(), fullMethod: l.trim() }); }
+      continue;
+    }
     const fullMethod = cleanMethod(m[1]);
     const frames = sections[sections.length - 1].frames;
     const prev = frames[frames.length - 1];

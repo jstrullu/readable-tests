@@ -36,8 +36,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npx vsce package --no-dependencies -o csharp-test-viewer.vsix
+      - run: npx vsce package --no-dependencies -o readable-tests.vsix
       - uses: actions/upload-artifact@v4
         with:
           name: vsix
-          path: csharp-test-viewer.vsix
+          path: readable-tests.vsix

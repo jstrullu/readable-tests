@@ -2,7 +2,9 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { t } from './i18n';
 
-const IGNORED = /[\\/](bin|obj|\.git|\.vs|\.vscode|\.idea|node_modules|TestResults|artifacts)([\\/]|$)/i;
+const IGNORED = /[\\/](bin|obj|\.git|\.vs|\.vscode|\.idea|node_modules|TestResults|artifacts|\.angular|\.vitest|\.nx|coverage)([\\/]|$)/i;
+/** Fichiers front-end : sans effet sur un build .NET (évite de recompiler les tests .NET après une modif Angular). */
+const FRONTEND = /\.(ts|tsx|js|jsx|mjs|cjs|vue|svelte|scss|sass|less|css|html)$/i;
 const RESTORE_SENSITIVE = /\.(csproj|fsproj|vbproj|props|targets|sln|slnx)$|[\\/](global\.json|nuget\.config|packages\.lock\.json)$/i;
 
 /**
@@ -20,7 +22,7 @@ export class BuildTracker {
 
   /** Retourne true si le changement touche la structure des projets (restore + caches à invalider). */
   touch(file: string): boolean {
-    if (IGNORED.test(file)) { return false; }
+    if (IGNORED.test(file) || FRONTEND.test(file)) { return false; }
     this.generation++;
     this.built.clear();
     if (!this.firstChange) { this.firstChange = file; }

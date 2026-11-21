@@ -2,6 +2,7 @@
 !dist/extension.js
 !images/icon.png
 !media/**
+!reporters/**
 !l10n/**
 !package.json
 !package.nls*.json

@@ -1,4 +1,4 @@
-import { fullyQualifiedName, resultKey, RunTarget, TestResult } from './model';
+import { fullyQualifiedName, jsFullName, resultKey, RunTarget, TestResult } from './model';
 import { t } from './i18n';
 
 const MAX_STDOUT = 20_000;
@@ -42,6 +42,9 @@ export class ResultStore {
     if (target.kind === 'all') {
       for (const [k, r] of this.results) { if (r.project === project) { this.results.delete(k); } }
     }
+    // Exécution JS filtrée : Vitest/Jest renvoient aussi les tests non sélectionnés (en "ignoré") ;
+    // seuls les tests ciblés sont mis à jour.
+    if (target.kind === 'js') { fresh = fresh.filter(r => inTarget(r, target)); }
     const seen = new Set<string>();
     for (const r of fresh) {
       const k = resultKey(r);
@@ -75,5 +78,6 @@ export function inTarget(r: TestResult, target: RunTarget): boolean {
     case 'all': return true;
     case 'class': return r.className === target.className;
     case 'methods': return target.fqns.includes(fullyQualifiedName(r));
+    case 'js': return !!r.file && target.tests.some(x => x.file === r.file && (x.fullName === '' || r.fileLevel || x.fullName === jsFullName(r)));
   }
 }
