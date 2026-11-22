@@ -355,7 +355,7 @@
     "compile": "tsc -p .",
     "bundle": "esbuild src/extension.ts --bundle --platform=node --format=cjs --external:vscode --outfile=dist/extension.js --minify",
     "test": "npm run compile && node --test out/test/*.test.js",
-    "vscode:prepublish": "npm run bundle",
+    "vscode:prepublish": "node scripts/third-party-notices.mjs && npm run bundle",
     "package": "vsce package --no-dependencies"
   },
   "dependencies": {
