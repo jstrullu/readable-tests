@@ -1,5 +1,10 @@
 # Readable Tests
 
+[![Marketplace](https://img.shields.io/visual-studio-marketplace/v/jstrullu.readable-tests?label=Marketplace)](https://marketplace.visualstudio.com/items?itemName=jstrullu.readable-tests)
+[![Installs](https://img.shields.io/visual-studio-marketplace/i/jstrullu.readable-tests)](https://marketplace.visualstudio.com/items?itemName=jstrullu.readable-tests)
+[![Open VSX](https://img.shields.io/open-vsx/v/jstrullu/readable-tests?label=Open%20VSX)](https://open-vsx.org/extension/jstrullu/readable-tests)
+[![CI](https://github.com/jstrullu/readable-tests/actions/workflows/ci.yml/badge.svg)](https://github.com/jstrullu/readable-tests/actions/workflows/ci.yml)
+
 **Readable test results in VS Code, for .NET and JavaScript** — TUnit / Microsoft.Testing.Platform, xUnit, NUnit, MSTest, **Vitest, Jest and the Angular CLI**.
 
 Test Explorer shows you *that* a test failed. Readable Tests shows you *why*, at a glance: what was expected, what came out, where, and through which calls — with the same view whatever the stack.
@@ -100,7 +105,7 @@ No telemetry. The extension only runs `dotnet`, `node` and your test tools local
 
 ## Feedback
 
-Bugs and ideas: [GitHub issues](https://github.com/jstrullu/readable-tests/issues).
+Bugs and ideas: [GitHub issues](https://github.com/jstrullu/readable-tests/issues/new/choose). Security issues: see [SECURITY.md](SECURITY.md).
 
 ## License
 
