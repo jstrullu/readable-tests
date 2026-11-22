@@ -1,8 +1,10 @@
 # Readable Tests
 
-[![Marketplace](https://img.shields.io/visual-studio-marketplace/v/jstrullu.readable-tests?label=Marketplace)](https://marketplace.visualstudio.com/items?itemName=jstrullu.readable-tests)
-[![Installs](https://img.shields.io/visual-studio-marketplace/i/jstrullu.readable-tests)](https://marketplace.visualstudio.com/items?itemName=jstrullu.readable-tests)
+[![Marketplace](https://vsmarketplacebadges.dev/version/jstrullu.readable-tests.svg?label=Marketplace&color=blue)](https://marketplace.visualstudio.com/items?itemName=jstrullu.readable-tests)
+[![Installs](https://vsmarketplacebadges.dev/installs/jstrullu.readable-tests.svg)](https://marketplace.visualstudio.com/items?itemName=jstrullu.readable-tests)
+<!-- Open VSX : à réactiver quand le namespace jstrullu sera vérifié (l'extension y est inactive d'ici là)
 [![Open VSX](https://img.shields.io/open-vsx/v/jstrullu/readable-tests?label=Open%20VSX)](https://open-vsx.org/extension/jstrullu/readable-tests)
+-->
 [![CI](https://github.com/jstrullu/readable-tests/actions/workflows/ci.yml/badge.svg)](https://github.com/jstrullu/readable-tests/actions/workflows/ci.yml)
 
 **Readable test results in VS Code, for .NET and JavaScript** — TUnit / Microsoft.Testing.Platform, xUnit, NUnit, MSTest, **Vitest, Jest and the Angular CLI**.
