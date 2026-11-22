@@ -1,5 +1,13 @@
 # Publication : pousser un tag vX.Y.Z identique à la version de package.json.
-#   git tag v0.4.0 && git push origin v0.4.0
+#   git tag v0.4.1 && git push origin v0.4.1
+# Ne pas créer la release GitHub à la main : le workflow s'en charge (et complète
+# une release existante si besoin).
+#
+# Relance manuelle (Actions › Release › Run workflow, tag = v0.4.0) : rejoue la
+# publication d'un tag existant. Idempotent : une version déjà publiée sur le
+# Marketplace ou Open VSX est ignorée (--skip-duplicate), la release GitHub est
+# créée ou complétée.
+#
 # Aucun secret requis : Marketplace et Open VSX en Trusted Publishing (OIDC).
 # Le nom de ce fichier (release.yml) et les environnements doivent correspondre
 # aux politiques déclarées sur le Marketplace et sur Open VSX.
@@ -8,9 +16,17 @@ name: Release
 on:
   push:
     tags: ['v*.*.*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Tag existant à (re)publier, ex. v0.4.0
+        required: true
 
 permissions:
   contents: read
+
+env:
+  TAG: ${{ inputs.tag || github.ref_name }}
 
 jobs:
   build:
@@ -19,6 +35,8 @@ jobs:
       version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.TAG }}
       - uses: actions/setup-node@v7
         with:
           node-version: 22
@@ -29,8 +47,8 @@ jobs:
         id: version
         run: |
           version=$(node -p "require('./package.json').version")
-          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
-            echo "::error::Tag $GITHUB_REF_NAME does not match package.json version $version"
+          if [ "v$version" != "$TAG" ]; then
+            echo "::error::Tag $TAG does not match package.json version $version"
             exit 1
           fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
@@ -49,6 +67,8 @@ jobs:
       id-token: write
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.TAG }}
       - uses: actions/setup-node@v7
         with:
           node-version: 22
@@ -57,7 +77,7 @@ jobs:
       - uses: actions/download-artifact@v8
         with:
           name: vsix
-      - run: npx vsce publish --oidc --packagePath readable-tests.vsix
+      - run: npx vsce publish --oidc --skip-duplicate --packagePath readable-tests.vsix
 
   openvsx:
     needs: build
@@ -68,6 +88,8 @@ jobs:
       id-token: write
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.TAG }}
       - uses: actions/setup-node@v7
         with:
           node-version: 22
@@ -81,12 +103,13 @@ jobs:
           OVSX_PAT: ${{ secrets.OVSX_PAT }}
         run: |
           if [ -n "$OVSX_PAT" ]; then
-            npx ovsx publish readable-tests.vsix -p "$OVSX_PAT"
+            npx ovsx publish readable-tests.vsix --skip-duplicate -p "$OVSX_PAT"
           else
             unset OVSX_PAT
-            npx ovsx publish readable-tests.vsix --trusted-publishing
+            npx ovsx publish readable-tests.vsix --skip-duplicate --trusted-publishing
           fi
 
+  # Ne dépend que du Marketplace : un échec Open VSX (namespace non vérifié…) ne bloque pas la release.
   github-release:
     needs: [build, marketplace]
     runs-on: ubuntu-latest
@@ -94,14 +117,23 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.TAG }}
       - uses: actions/download-artifact@v8
         with:
           name: vsix
-      - name: Create GitHub release
+      - name: Create or update GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.build.outputs.version }}
         run: |
-          mv readable-tests.vsix "readable-tests-${{ needs.build.outputs.version }}.vsix"
-          notes=$(awk -v v="${{ needs.build.outputs.version }}" '$0 ~ "^## \\[" v "\\]" {f=1; next} /^## \[/ {f=0} f' CHANGELOG.md)
-          gh release create "$GITHUB_REF_NAME" "readable-tests-${{ needs.build.outputs.version }}.vsix" \
-            --title "$GITHUB_REF_NAME" --notes "${notes:-See CHANGELOG.md}"
+          file="readable-tests-$VERSION.vsix"
+          mv readable-tests.vsix "$file"
+          awk -v v="$VERSION" '$0 ~ "^## \\[" v "\\]" {f=1; next} /^## \[/ {f=0} f' CHANGELOG.md > notes.md
+          [ -s notes.md ] || echo "See CHANGELOG.md" > notes.md
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$file" --clobber
+            gh release edit "$TAG" --title "$TAG" --notes-file notes.md
+          else
+            gh release create "$TAG" "$file" --title "$TAG" --notes-file notes.md
+          fi
