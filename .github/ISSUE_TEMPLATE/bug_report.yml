@@ -1,0 +1,106 @@
+name: Bug report
+description: Something does not work or a failure is displayed wrongly.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a problem.
+        Please check the [known limitations](https://github.com/jstrullu/readable-tests#known-limitations) first.
+        **Do not paste confidential code or data** — a minimal reproduction is ideal.
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Test framework
+      options:
+        - TUnit / Microsoft.Testing.Platform
+        - xUnit
+        - NUnit
+        - MSTest
+        - Vitest
+        - Angular CLI (ng test)
+        - Jest
+        - Not framework-specific (UI, settings…)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Kind of problem
+      options:
+        - Tests not discovered / project not detected
+        - Run fails or never ends
+        - Wrong results (status, wrong tests run, results overwritten)
+        - Failure displayed wrongly (message, expected/actual, stack trace)
+        - Slow runs
+        - Navigation (Go to code, code excerpt, inline error)
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What you did, what you saw. Screenshots welcome.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+    validations:
+      required: true
+
+  - type: textarea
+    id: output
+    attributes:
+      label: Output channel
+      description: |
+        From **View › Output › Readable Tests**: the command line (lines starting with `▶`),
+        the timing line (`⏱ …`) and any error. For a display problem, the **Copy** button
+        of the details panel gives the test name, message and stack trace.
+      render: text
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Minimal reproduction
+      description: A small test file, project layout or public repository that shows the problem.
+
+  - type: input
+    id: extension-version
+    attributes:
+      label: Readable Tests version
+      placeholder: e.g. 0.4.0 (Extensions view › Readable Tests)
+    validations:
+      required: true
+
+  - type: input
+    id: framework-version
+    attributes:
+      label: Test framework version
+      placeholder: e.g. TUnit 1.78.0, Vitest 5.1.1, Jest 30.5.2, @angular/build 22.3.0
+
+  - type: input
+    id: runtime
+    attributes:
+      label: .NET SDK / Node.js version
+      placeholder: "`dotnet --version` / `node --version`"
+
+  - type: input
+    id: environment
+    attributes:
+      label: VS Code version and OS
+      placeholder: e.g. VS Code 1.107, Windows 11 (or Cursor / VSCodium, WSL, Dev Container…)
+    validations:
+      required: true
+
+  - type: input
+    id: language
+    attributes:
+      label: VS Code display language
+      placeholder: e.g. English, French

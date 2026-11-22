@@ -1,0 +1,39 @@
+name: Feature request
+description: Suggest an improvement or support for a new framework.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What is hard or impossible today? Describe the situation rather than the solution.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: What would you like Readable Tests to do?
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      multiple: true
+      options:
+        - Failure display
+        - Test tree / filters
+        - Run speed
+        - New test framework or runner
+        - Editor integration (inline errors, navigation)
+        - Settings / configuration
+        - Other
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Workarounds you use today, or other extensions doing something similar.

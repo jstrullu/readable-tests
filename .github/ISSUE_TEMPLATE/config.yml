@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Known limitations
+    url: https://github.com/jstrullu/readable-tests#known-limitations
+    about: Check whether your problem is already a documented limitation.
+  - name: Marketplace page
+    url: https://marketplace.visualstudio.com/items?itemName=jstrullu.readable-tests
+    about: Settings, requirements and how tests are run.

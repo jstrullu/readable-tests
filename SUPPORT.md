@@ -1,6 +1,6 @@
 # Support
 
-- **Bugs and feature requests**: open an issue at https://github.com/jstrullu/readable-tests/issues.
+- **Bugs and feature requests**: open an issue at https://github.com/jstrullu/readable-tests/issues/new/choose and pick the *Bug report* or *Feature request* form.
 - Please include: the line starting with `⏱` and any error from the *Readable Tests* output channel, your test framework and version, your .NET SDK version (`dotnet --version`) or Node.js version (`node --version`), and your OS.
 - For a wrong or unreadable failure display, the **Copy** button in the details panel gives everything needed (test name, message, stack trace).
 
