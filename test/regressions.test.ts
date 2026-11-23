@@ -66,15 +66,15 @@ test('Exécution : un petit-enfant qui garde la sortie ouverte ne bloque pas la 
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'hold-'));
   const script = path.join(tmp, 'app.js');
   // Le « test » lance un serveur détaché qui hérite de stdout puis se termine (cas Testcontainers, host web…).
-  fs.writeFileSync(script, `const c = require('child_process').spawn(process.execPath, ['-e', 'setTimeout(() => {}, 20000)'], { stdio: 'inherit', detached: true }); require('fs').writeFileSync(${JSON.stringify(path.join(tmp, 'pid'))}, String(c.pid)); c.unref();`);
+  fs.writeFileSync(script, `const c = require('child_process').spawn(process.execPath, ['-e', 'setTimeout(() => {}, 20000)'], { stdio: 'inherit', detached: true, cwd: require('os').tmpdir() }); require('fs').writeFileSync(${JSON.stringify(path.join(tmp, 'pid'))}, String(c.pid)); c.unref();`);
   const runner = new TestRunner({ append: () => {}, appendLine: () => {} } as never, tmp);
   const t0 = Date.now();
   const res = await runner.runMtp({ path: path.join(tmp, 'X.csproj'), runner: 'mtp', framework: 'tunit', targetFrameworks: [] },
-    { command: process.execPath, args: [script], cwd: tmp, targetPath: script, env: {} }, [], []);
+    { command: process.execPath, args: [script], cwd: os.tmpdir(), targetPath: script, env: {} }, [], []);
   assert.ok(Date.now() - t0 < 6000, `rendu en ${Date.now() - t0} ms`);
   assert.equal(res.ok, false);
   try { process.kill(Number(fs.readFileSync(path.join(tmp, 'pid'), 'utf8')), 'SIGKILL'); } catch { /* déjà mort */ }
-  fs.rmSync(tmp, { recursive: true, force: true });
+  removeLater(tmp);
 });
 
 test('Annulation : la main est rendue même si le processus ne se ferme pas', async () => {
@@ -86,7 +86,7 @@ test('Annulation : la main est rendue même si le processus ne se ferme pas', as
   const runner = new TestRunner({ append: () => {}, appendLine: () => {} } as never, tmp);
   const t0 = Date.now();
   const pending = runner.runMtp({ path: path.join(tmp, 'X.csproj'), runner: 'mtp', framework: 'tunit', targetFrameworks: [] },
-    { command: process.execPath, args: [script], cwd: tmp, targetPath: script, env: {} }, [], []);
+    { command: process.execPath, args: [script], cwd: os.tmpdir(), targetPath: script, env: {} }, [], []);
   setTimeout(() => runner.cancel(), 300);
   const res = await pending;
   assert.ok(Date.now() - t0 < 5000, `rendu en ${Date.now() - t0} ms`);
@@ -94,5 +94,10 @@ test('Annulation : la main est rendue même si le processus ne se ferme pas', as
   if (!res.ok) { assert.match(res.error, /cancel/i); }
   // Nettoyage : le processus récalcitrant est tué pour de bon.
   try { process.kill(Number(fs.readFileSync(path.join(tmp, 'pid'), 'utf8')), 'SIGKILL'); } catch { /* déjà mort */ }
-  fs.rmSync(tmp, { recursive: true, force: true });
+  removeLater(tmp);
 });
+
+/** Sous Windows, un processus tué libère ses fichiers de façon asynchrone : nettoyage sans faire échouer le test. */
+function removeLater(dir: string): void {
+  try { fs.rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }); } catch { /* dossier temporaire */ }
+}
