@@ -104,6 +104,13 @@ test('Détection xUnit v3 : ligne de commande native sauf UseMicrosoftTestingPla
   assert.equal(inspectProject(withSdk)!.runner, 'xunit3');
   assert.equal(inspectProject(dotnetTestMtp)!.runner, 'xunit3', 'TestingPlatformDotnetTestSupport ne change pas la ligne de commande du binaire');
   assert.equal(inspectProject(mtp)!.runner, 'mtp');
+
+  // Gestion centralisée des paquets : TUnit déclaré en version pour d'autres projets du dépôt.
+  write('e/Directory.Packages.props', '<Project><ItemGroup><PackageVersion Include="TUnit" Version="1.2.3" /><PackageVersion Include="xunit.v3" Version="3.2.2"></PackageVersion></ItemGroup></Project>');
+  write('e/Directory.Build.props', '<Project><PropertyGroup><ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally></PropertyGroup></Project>');
+  const cpm = inspectProject(write('e/src/E.Tests/E.Tests.csproj', '<Project><ItemGroup><PackageReference Include="xunit.v3" /></ItemGroup></Project>'))!;
+  assert.deepEqual([cpm.framework, cpm.runner], ['xunit3', 'xunit3'], 'PackageVersion TUnit ignoré');
+  assert.equal(inspectProject(write('e/src/Lib/Lib.csproj', '<Project><ItemGroup><PackageReference Include="Newtonsoft.Json" /></ItemGroup></Project>')), undefined);
   fs.rmSync(root, { recursive: true, force: true });
 });
 

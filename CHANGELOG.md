@@ -6,6 +6,7 @@ All notable changes to this extension are documented here. Format: [Keep a Chang
 
 ### Fixed
 
+- .NET: with central package management, a `<PackageVersion Include="TUnit">` in `Directory.Packages.props` made every test project of the repository detected as TUnit / MTP. Only actual package references are considered now, and the project's own references take precedence over inherited ones.
 - xUnit v3: projects without `UseMicrosoftTestingPlatformRunner` were run with Microsoft.Testing.Platform options and failed with "unknown option: --results-directory". They now use the xUnit v3 native command line (`-result-trx`, `-class`, `-method`), launched directly like MTP binaries.
 
 ### Changed
