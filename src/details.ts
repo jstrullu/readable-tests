@@ -148,7 +148,14 @@ ${other.length ? `<details><summary class="dim">${t('{0} framework / external fr
       return `<p class="dim">${t('No results yet. Run the tests with ▶ in the view toolbar.')}</p>`;
     }
     const s = summarize(all);
-    const link = (r: TestResult) => `<a href="#" data-action="goto" data-key="${esc(this.host.keyOf(r))}">${esc(r.file ? `${r.groupLabel} › ${r.methodName}` : r.className.split('.').pop() + '.' + r.methodName)}</a>`;
+    // Nom du test (cliquable) puis son contexte (classe ou suite) en dessous : les noms longs
+    // (paramètres de théorie, suites imbriquées) passent à la ligne au lieu de déborder.
+    const link = (r: TestResult) => {
+      const ctx = r.file ? r.groupLabel ?? '' : r.className.split('.').pop() ?? '';
+      const full = r.file ? `${r.groupDescription ?? r.file} › ${r.groupLabel} › ${r.methodName}` : `${r.className}.${r.methodName}`;
+      return `<a href="#" class="tname" data-action="goto" data-key="${esc(this.host.keyOf(r))}" title="${esc(full)}">${breakable(r.methodName)}</a>`
+        + (ctx ? `<span class="tctx">${esc(ctx)}</span>` : '');
+    };
     const failed = all.filter(r => r.outcome === 'failed').slice(0, 50);
     const slow = [...all].sort((a, b) => b.durationMs - a.durationMs).slice(0, 5);
     return `
@@ -159,7 +166,7 @@ ${other.length ? `<details><summary class="dim">${t('{0} framework / external fr
   <div class="kpi" title="${esc(t('Sum of test durations: {0}', formatDuration(s.durationMs)))}"><b>${formatDuration(s.elapsedMs)}</b>${t('elapsed')}</div>
 </div>
 ${failed.length ? section(t('Failures'), failed.map(r => `<div class="fail-item">${link(r)}<div class="dim small">${esc(summarizeResult(r))}</div></div>`).join('')) : ''}
-${section(t('Slowest'), slow.map(r => `<div class="frame">${link(r)}<span class="dim">${formatDuration(r.durationMs)}</span></div>`).join(''))}`;
+${section(t('Slowest'), `<div class="rank">${slow.map(r => `<span class="d">${formatDuration(r.durationMs)}</span><div>${link(r)}</div>`).join('')}</div>`)}`;
   }
 }
 
@@ -185,6 +192,11 @@ function segments(s: Segment[]): string {
 
 function section(title: string, content: string, rawTitle = false): string {
   return `<section><h3>${rawTitle ? title : esc(title)}</h3>${content}</section>`;
+}
+
+/** Échappe et autorise la coupure après les séparateurs des noms de test (snake_case, paramètres…). */
+export function breakable(s: string): string {
+  return esc(s).replace(/([_.,(])/g, '$1<wbr>');
 }
 
 function shortType(t: string): string { return t.split('.').pop() ?? t; }
@@ -265,4 +277,8 @@ pre.plain { white-space: pre-wrap; word-break: break-word; margin: 6px 0 0; padd
 .kpi b { display: block; font-size: 17px; color: var(--vscode-foreground); }
 .kpi.passed b { color: var(--pass); } .kpi.failed b { color: var(--fail); } .kpi.skipped b { color: var(--skip); }
 .fail-item { padding: 3px 0; border-bottom: 1px solid var(--vscode-panel-border, rgba(127,127,127,.15)); }
+.tname { overflow-wrap: break-word; word-break: break-word; }
+.tctx { display: block; font-size: 11px; color: var(--vscode-descriptionForeground); overflow-wrap: anywhere; }
+.rank { display: grid; grid-template-columns: max-content minmax(0, 1fr); column-gap: 10px; row-gap: 4px; align-items: baseline; }
+.rank .d { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; color: var(--vscode-descriptionForeground); }
 `;

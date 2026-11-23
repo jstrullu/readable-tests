@@ -2,6 +2,12 @@
 
 All notable changes to this extension are documented here. Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.4.4] — 2026-11-23
+
+### Fixed
+
+- Summary view: long test names (theory parameters, nested suites) in "Slowest" and "Failures" overflowed the panel and hid the duration. Names now wrap (preferably after `_`, `.`, `,`, `(`), the class or suite is shown below in small type, durations are right-aligned in their own column, and the full name is in the tooltip.
+
 ## [0.4.3] — 2026-11-23
 
 ### Fixed
