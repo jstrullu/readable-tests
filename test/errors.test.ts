@@ -88,6 +88,23 @@ test('Filtres TUnit --treenode-filter', () => {
   assert.deepEqual(filterArgs('mtp', 'tunit', { kind: 'all' }), []);
   assert.deepEqual(filterArgs('mtp', 'xunit3', { kind: 'methods', fqns: ['A.B.M'] }), ['--filter-method', 'A.B.M']);
   assert.equal(filterArgs('mtp', 'mstest', { kind: 'class', className: 'A.B' })[0], '--filter');
+  assert.deepEqual(filterArgs('xunit3', 'xunit3', { kind: 'class', className: 'A.B' }), ['-class', 'A.B']);
+  assert.deepEqual(filterArgs('xunit3', 'xunit3', { kind: 'methods', fqns: ['A.B.M', 'A.B.N', 'A.B.M'] }), ['-method', 'A.B.M', '-method', 'A.B.N']);
+});
+
+test('Détection xUnit v3 : ligne de commande native sauf UseMicrosoftTestingPlatformRunner', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ctv-'));
+  const write = (rel: string, c: string) => { fs.mkdirSync(path.dirname(path.join(root, rel)), { recursive: true }); fs.writeFileSync(path.join(root, rel), c); return path.join(root, rel); };
+  const native = write('a/A.Tests.csproj', '<Project><PropertyGroup><OutputType>Exe</OutputType></PropertyGroup><ItemGroup><PackageReference Include="xunit.v3" /></ItemGroup></Project>');
+  const withSdk = write('b/B.Tests.csproj', '<Project><ItemGroup><PackageReference Include="Microsoft.NET.Test.Sdk" /><PackageReference Include="xunit.v3" /><PackageReference Include="xunit.runner.visualstudio" /></ItemGroup></Project>');
+  const dotnetTestMtp = write('c/C.Tests.csproj', '<Project><PropertyGroup><TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport></PropertyGroup><ItemGroup><PackageReference Include="xunit.v3" /></ItemGroup></Project>');
+  write('d/Directory.Build.props', '<Project><PropertyGroup><UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner></PropertyGroup></Project>');
+  const mtp = write('d/D.Tests.csproj', '<Project><ItemGroup><PackageReference Include="xunit.v3" /></ItemGroup></Project>');
+  assert.equal(inspectProject(native)!.runner, 'xunit3');
+  assert.equal(inspectProject(withSdk)!.runner, 'xunit3');
+  assert.equal(inspectProject(dotnetTestMtp)!.runner, 'xunit3', 'TestingPlatformDotnetTestSupport ne change pas la ligne de commande du binaire');
+  assert.equal(inspectProject(mtp)!.runner, 'mtp');
+  fs.rmSync(root, { recursive: true, force: true });
 });
 
 test('Détection projets : TUnit direct, TUnit via Directory.Build.props, xUnit VSTest, projet non-test', () => {

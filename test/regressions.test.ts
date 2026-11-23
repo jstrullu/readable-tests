@@ -38,3 +38,25 @@ test('Projet JS sans dépendances installées : détecté comme tel', () => {
   assert.equal(nodeRunnerBin(p)?.version, '30.0.0');
   fs.rmSync(root, { recursive: true, force: true });
 });
+
+test('xUnit v3 natif : -result-trx, repli sur -trx pour les anciennes versions, filtres -method', async () => {
+  const { TestRunner } = await import('../src/runner');
+  const fixture = path.resolve(__dirname, '../../test/fixtures/xunit3/fake-xunit.js');
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'xv3-'));
+  const argsFile = path.join(tmp, 'args.json');
+  const log = { append: () => {}, appendLine: () => {} };
+  for (const [mode, sw] of [['new', '-result-trx'], ['old', '-trx']]) {
+    const runner = new TestRunner(log as never, tmp);
+    const cmd = { command: process.execPath, args: [fixture], cwd: tmp, targetPath: fixture,
+      env: { FAKE_XUNIT_MODE: mode, FAKE_XUNIT_ARGS: argsFile } };
+    const res = await runner.runXunit({ path: path.join(tmp, 'X.Tests.csproj'), runner: 'xunit3', framework: 'xunit3', targetFrameworks: [] },
+      cmd, ['-method', 'Demo.Calc.Ko'], []);
+    if (!res.ok) { assert.fail(`${mode}: ${res.error}`); }
+    assert.equal(res.results[0].outcome, 'failed');
+    assert.equal(res.results[0].className, 'Demo.Calc');
+    const args = JSON.parse(fs.readFileSync(argsFile, 'utf8')) as string[];
+    assert.ok(args.includes(sw), `${mode} utilise ${sw}`);
+    assert.deepEqual(args.slice(-2), ['-method', 'Demo.Calc.Ko']);
+  }
+  fs.rmSync(tmp, { recursive: true, force: true });
+});

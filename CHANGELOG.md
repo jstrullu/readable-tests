@@ -2,6 +2,17 @@
 
 All notable changes to this extension are documented here. Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.4.2] — 2026-11-23
+
+### Fixed
+
+- xUnit v3: projects without `UseMicrosoftTestingPlatformRunner` were run with Microsoft.Testing.Platform options and failed with "unknown option: --results-directory". They now use the xUnit v3 native command line (`-result-trx`, `-class`, `-method`), launched directly like MTP binaries.
+
+### Changed
+
+- xUnit v3 projects that also reference `Microsoft.NET.Test.Sdk` no longer go through `dotnet test` / VSTest: the test binary is launched directly (faster). Set `readableTests.runner` to `vstest` to keep the previous behavior.
+- New setting `readableTests.xunit3.extraArgs`.
+
 ## [0.4.1] — 2026-11-23
 
 ### Fixed

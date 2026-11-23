@@ -35,6 +35,7 @@ export function activate(context: vscode.ExtensionContext): void {
     const missing = info.notInstalled ? ` · ${t('npm install required')}` : '';
     if (info.runner === 'angular') { return `angular · vitest${missing}`; }
     if (isNodeRunner(info.runner)) { return `${info.runner}${missing}`; }
+    if (info.runner === 'xunit3') { return 'xunit3 · native'; }
     return `${info.framework === 'unknown' ? '' : info.framework + ' · '}${info.runner}`;
   }, p => projects.get(p)?.label ?? projectName(p));
   const treeView = vscode.window.createTreeView('readableTests.tree', { treeDataProvider: tree, showCollapseAll: true });
@@ -117,7 +118,7 @@ export function activate(context: vscode.ExtensionContext): void {
     const { configuration } = buildSettings(cfg);
     const framework = cfg.get<string>('targetFramework') || undefined;
     for (const p of projects.values()) {
-      if (p.runner !== 'mtp') { continue; }
+      if (p.runner !== 'mtp' && p.runner !== 'xunit3') { continue; }
       try {
         await runner.resolveRunCommand(p, { dotnetPath: cfg.get<string>('dotnetPath', 'dotnet'), configuration, framework: p.targetFrameworks.length > 1 ? (framework ?? p.targetFrameworks[0]) : undefined });
       } catch { /* sera retenté à l'exécution */ }
@@ -228,6 +229,8 @@ export function activate(context: vscode.ExtensionContext): void {
               })
               : project.runner === 'mtp'
               ? await runner.runMtp(project, await runner.resolveRunCommand(project, { dotnetPath, configuration, framework: tfmOf(project) }), fArgs, cfg.get<string[]>('mtp.extraArgs', []))
+              : project.runner === 'xunit3'
+              ? await runner.runXunit(project, await runner.resolveRunCommand(project, { dotnetPath, configuration, framework: tfmOf(project) }), fArgs, cfg.get<string[]>('xunit3.extraArgs', []))
               : await runner.runVstest(project, { dotnetPath, configuration, framework: tfmOf(project), filterArgs: fArgs, extraArgs: cfg.get<string[]>('extraArgs', []) });
           } catch (e) {
             fail(job, (e as Error).message);

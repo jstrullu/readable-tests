@@ -1,7 +1,8 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
-export type Runner = 'vstest' | 'mtp' | 'vitest' | 'jest' | 'angular';
+/** `xunit3` : ligne de commande native de xUnit v3 (binaire lancé directement, sans MTP). */
+export type Runner = 'vstest' | 'mtp' | 'xunit3' | 'vitest' | 'jest' | 'angular';
 export type Framework = 'tunit' | 'xunit3' | 'xunit' | 'nunit' | 'mstest' | 'vitest' | 'jest' | 'unknown';
 
 export interface TestProject {
@@ -54,8 +55,10 @@ export function detectFramework(content: string): Framework {
 
 export function detectRunner(content: string, framework: Framework): Runner {
   if (framework === 'tunit') { return 'mtp'; }
+  // xUnit v3 : le binaire n'expose la ligne de commande MTP qu'avec UseMicrosoftTestingPlatformRunner=true.
+  // Sinon c'est la ligne de commande native (-class, -method, -result-trx), quel que soit le mode de dotnet test.
+  if (framework === 'xunit3') { return /<UseMicrosoftTestingPlatformRunner>\s*true/i.test(content) ? 'mtp' : 'xunit3'; }
   if (/<(UseMicrosoftTestingPlatformRunner|EnableMSTestRunner|EnableNUnitRunner|TestingPlatformDotnetTestSupport)>\s*true/i.test(content)) { return 'mtp'; }
-  if (framework === 'xunit3' && /<OutputType>\s*Exe/i.test(content) && !/Microsoft\.NET\.Test\.Sdk/i.test(content)) { return 'mtp'; }
   return 'vstest';
 }
 

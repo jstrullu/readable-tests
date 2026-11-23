@@ -33,6 +33,15 @@ function mtpExit(code: number): string | undefined {
   }
 }
 
+/** Codes de sortie de la ligne de commande native xUnit v3 (1 = tests en échec : normal). */
+function xunitExit(code: number): string | undefined {
+  switch (code) {
+    case 3: return t('Command line option rejected by the xUnit runner: see the output.');
+    case 4: return t('The xUnit runner failed: see the output.');
+    default: return undefined;
+  }
+}
+
 const ENV = { DOTNET_CLI_TELEMETRY_OPTOUT: '1', DOTNET_NOLOGO: '1', TESTINGPLATFORM_TELEMETRY_OPTOUT: '1' };
 
 export class TestRunner {
@@ -131,7 +140,24 @@ export class TestRunner {
     const args = [...cmd.args, '--results-directory', dir, '--report-trx', '--report-trx-filename', 'results.trx',
       '--no-progress', '--no-ansi', ...filterArgs, ...extraArgs];
     const res = await this.exec(cmd.command, args, cmd.cwd, { env: cmd.env });
-    return this.collect(project, dir, res.code, true);
+    return this.collect(project, dir, res.code, mtpExit, 8);
+  }
+
+  /**
+   * xUnit v3 sans MTP : ligne de commande native du binaire. `-result-trx` (3.x+) remplace `-trx`,
+   * déprécié puis retiré : on retente avec l'ancien nom si le binaire ne connaît pas le nouveau.
+   */
+  async runXunit(project: TestProject, cmd: RunCommand, filterArgs: string[], extraArgs: string[]): Promise<ProjectRunStatus> {
+    if (!fs.existsSync(cmd.targetPath)) {
+      return { ok: false, error: t('Test binary not found ({0}). Build first or set readableTests.build to "auto".', cmd.targetPath) };
+    }
+    const dir = this.newResultsDir(project);
+    const run = (trxSwitch: string) => this.exec(cmd.command,
+      [...cmd.args, '-noLogo', '-noColor', trxSwitch, path.join(dir, 'results.trx'), ...filterArgs, ...extraArgs],
+      cmd.cwd, { env: cmd.env, capture: true });
+    let res = await run('-result-trx');
+    if (res.code === 3 && /unknown option: -result-trx/i.test(res.stdout)) { res = await run('-trx'); }
+    return this.collect(project, dir, res.code, xunitExit);
   }
 
   /** VSTest : `dotnet test --no-build` (le build a été fait en amont). */
@@ -140,7 +166,7 @@ export class TestRunner {
     const args = ['test', project.path, '--no-build', '--nologo', '-c', o.configuration, ...(o.framework ? ['-f', o.framework] : []),
       '--logger', 'trx', '--results-directory', dir, ...o.filterArgs, ...o.extraArgs];
     const res = await this.exec(o.dotnetPath, args, path.dirname(project.path));
-    return this.collect(project, dir, res.code, false);
+    return this.collect(project, dir, res.code);
   }
 
   /**
@@ -197,20 +223,25 @@ export class TestRunner {
     return dir;
   }
 
-  private collect(project: TestProject, dir: string, exitCode: number | null, mtp: boolean): ProjectRunStatus {
+  /**
+   * @param exitMessage message associé à un code de sortie anormal (MTP, xUnit natif)
+   * @param noMatchCode code de sortie « aucun test ne correspond au filtre »
+   */
+  private collect(project: TestProject, dir: string, exitCode: number | null,
+    exitMessage: (code: number) => string | undefined = () => undefined, noMatchCode?: number): ProjectRunStatus {
     try {
       if (this.cancelled) { return { ok: false, error: t('Run cancelled.') }; }
       if (exitCode === null) { return { ok: false, error: t('Cannot start the test process.') }; }
       const trxFiles = findTrx(dir);
       if (trxFiles.length === 0) {
-        if (mtp && mtpExit(exitCode)) { return { ok: false, error: `${mtpExit(exitCode)} (code ${exitCode})` }; }
+        if (exitMessage(exitCode)) { return { ok: false, error: `${exitMessage(exitCode)} (code ${exitCode})` }; }
         return { ok: false, error: t('No results produced (code {0}): see the output.', exitCode) };
       }
       const results: TestResult[] = [];
       for (const f of trxFiles) { results.push(...parseTrx(fs.readFileSync(f, 'utf8'), project.path)); }
       let warning: string | undefined;
-      if (mtp && exitCode === 8) { warning = t('No test matches the filter.'); }
-      else if (mtp && mtpExit(exitCode)) { warning = `${mtpExit(exitCode)} ${t('Partial results.')}`; }
+      if (noMatchCode !== undefined && exitCode === noMatchCode) { warning = t('No test matches the filter.'); }
+      else if (exitMessage(exitCode)) { warning = `${exitMessage(exitCode)} ${t('Partial results.')}`; }
       return { ok: true, results, warning };
     } catch (e) {
       return { ok: false, error: t('Cannot read results: {0}', (e as Error).message) };
