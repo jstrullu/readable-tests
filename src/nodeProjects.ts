@@ -76,3 +76,12 @@ export function resolveBin(fromDir: string, pkgName: string, binName: string): {
 }
 
 export function majorVersion(v: string): number { return parseInt(v.split('.')[0], 10) || 0; }
+
+/** Binaire du runner d'un projet JS (undefined si les dépendances ne sont pas installées). */
+export function nodeRunnerBin(p: TestProject): { script: string; version: string } | undefined {
+  const root = p.root ?? '';
+  if (p.runner === 'angular') { return resolveBin(root, '@angular/cli', 'ng'); }
+  if (p.runner === 'jest') { return resolveBin(root, 'jest', 'jest'); }
+  if (p.runner === 'vitest') { return resolveBin(root, 'vitest', 'vitest'); }
+  return undefined;
+}

@@ -75,6 +75,7 @@
   "launchSettings.json: profile \"{0}\" ({1})": "launchSettings.json : profil \"{0}\" ({1})",
   "missing": "absent",
   "not run": "non exécuté",
+  "npm install required": "npm install requis",
   "passed": "réussis",
   "reason: {0}": "cause : {0}",
   "skipped": "ignorés",
@@ -88,6 +89,7 @@
   "{0} framework / external frame(s)": "{0} frame(s) framework / externes",
   "{0} is not installed in {1}: run npm install.": "{0} n'est pas installé dans {1} : lancez npm install.",
   "{0} line(s)": "{0} ligne(s)",
+  "{0}: skipped, dependencies are not installed (run npm install in {1}).": "{0} : ignoré, dépendances non installées (lancez npm install dans {1}).",
   "… (truncated)": "… (tronqué)",
   "… and {0} more": "… et {0} autre(s)"
 }

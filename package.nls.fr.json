@@ -17,7 +17,7 @@
   "config.title": "Readable Tests",
   "config.dotnetPath": "Chemin de l'exécutable dotnet.",
   "config.extraArgs": "VSTest : arguments supplémentaires passés à `dotnet test --no-build`.",
-  "config.projectExclude": "Glob d'exclusion pour la recherche des projets de test.",
+  "config.projectExclude": "Glob d'exclusion pour la recherche des projets de test. Les dossiers wwwroot et dist sont exclus par défaut : ils contiennent des bibliothèques recopiées (avec leur propre package.json), pas des projets de test.",
   "config.revealFailures": "Déplier les tests en échec dans l'arbre après une exécution.",
   "config.runner": "Moteur d'exécution des projets de test.",
   "config.mtp.extraArgs": "MTP : arguments passés à l'application de test (ex. [\"--timeout\", \"5m\"]).",
