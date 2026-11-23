@@ -2,6 +2,14 @@
 
 All notable changes to this extension are documented here. Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.4.3] — 2026-11-23
+
+### Fixed
+
+- After cancelling, a new run was refused with "A run is already in progress" until every killed process had fully closed, which could take a long time or never happen. Cancelling now hands control back within 1.5 s.
+- A run no longer hangs when a test starts a background process (web host, container, server…) that inherits the console output: the run ends 2 s after the test process exits.
+- Results folders left over by a cancelled run are cleaned up at startup.
+
 ## [0.4.2] — 2026-11-23
 
 ### Fixed

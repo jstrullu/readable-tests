@@ -42,10 +42,17 @@ function xunitExit(code: number): string | undefined {
   }
 }
 
+/** Délai max entre 'exit' et 'close' (sortie gardée ouverte par un petit-enfant). */
+const EXIT_DRAIN_MS = 2000;
+/** Délai max après une annulation avant de considérer les processus comme terminés. */
+const CANCEL_GRACE_MS = 1500;
+
 const ENV = { DOTNET_CLI_TELEMETRY_OPTOUT: '1', DOTNET_NOLOGO: '1', TESTINGPLATFORM_TELEMETRY_OPTOUT: '1' };
 
 export class TestRunner {
   private readonly procs = new Set<ChildProcess>();
+  /** Fin forcée des exec() en cours : l'annulation ne dépend pas de la fermeture effective des processus. */
+  private readonly pending = new Set<() => void>();
   private cancelled = false;
   private readonly runCommands = new Map<string, RunCommand>();
 
@@ -65,6 +72,11 @@ export class TestRunner {
         try { process.kill(-p.pid, 'SIGTERM'); } catch { p.kill('SIGTERM'); }
       }
     }
+    // Un processus tué peut tarder à « fermer » (taskkill lent, petit-enfant qui garde la sortie
+    // ouverte) : on n'attend pas plus de CANCEL_GRACE_MS pour rendre la main. Seuls les exec en cours
+    // au moment de l'annulation sont concernés, pas ceux d'une exécution relancée entre-temps.
+    const stale = [...this.pending];
+    setTimeout(() => stale.forEach(finish => finish()), CANCEL_GRACE_MS);
   }
 
   /** À appeler quand un .csproj / .props change : chemins de sortie potentiellement différents. */
@@ -74,17 +86,32 @@ export class TestRunner {
     if (!opts.quiet) { this.log.appendLine(`\n▶ ${cmd} ${args.map(quoteForLog).join(' ')}`); }
     return new Promise(resolve => {
       let stdout = '';
+      let done = false;
+      let drain: NodeJS.Timeout | undefined;
       const child = spawn(cmd, args, {
         cwd,
         env: { ...process.env, ...ENV, ...opts.env },
         shell: false,
         detached: process.platform !== 'win32', // groupe de processus pour pouvoir tout arrêter
       });
+      const finish = (code: number | null) => {
+        if (done) { return; }
+        done = true;
+        clearTimeout(drain);
+        this.procs.delete(child);
+        this.pending.delete(abort);
+        resolve({ code, stdout });
+      };
+      const abort = () => finish(null);
       this.procs.add(child);
+      this.pending.add(abort);
       child.stdout.on('data', d => { const s = d.toString(); if (opts.capture) { stdout += s; } if (!opts.quiet) { this.log.append(s); } });
       child.stderr.on('data', d => { if (!opts.quiet) { this.log.append(d.toString()); } });
-      child.on('error', err => { this.log.appendLine(t('Error: {0}', err.message)); this.procs.delete(child); resolve({ code: null, stdout }); });
-      child.on('close', code => { this.procs.delete(child); resolve({ code, stdout }); });
+      child.on('error', err => { this.log.appendLine(t('Error: {0}', err.message)); finish(null); });
+      // 'close' attend la fermeture de stdout/stderr : un processus lancé par le test (serveur, conteneur…)
+      // qui hérite de la sortie la garde ouverte indéfiniment. Passé un délai après 'exit', on n'attend plus.
+      child.on('exit', code => { drain = setTimeout(() => finish(code), EXIT_DRAIN_MS); });
+      child.on('close', code => finish(code));
     });
   }
 
@@ -213,7 +240,8 @@ export class TestRunner {
     } catch (e) {
       return { ok: false, error: t('Cannot read results: {0}', (e as Error).message) };
     } finally {
-      fs.rmSync(dir, { recursive: true, force: true });
+      // Après annulation, un processus encore en train de mourir peut verrouiller le dossier (Windows).
+      try { fs.rmSync(dir, { recursive: true, force: true, maxRetries: 3 }); } catch { /* nettoyé au prochain démarrage */ }
     }
   }
 
@@ -246,7 +274,8 @@ export class TestRunner {
     } catch (e) {
       return { ok: false, error: t('Cannot read results: {0}', (e as Error).message) };
     } finally {
-      fs.rmSync(dir, { recursive: true, force: true });
+      // Après annulation, un processus encore en train de mourir peut verrouiller le dossier (Windows).
+      try { fs.rmSync(dir, { recursive: true, force: true, maxRetries: 3 }); } catch { /* nettoyé au prochain démarrage */ }
     }
   }
 }

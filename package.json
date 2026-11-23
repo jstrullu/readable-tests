@@ -2,7 +2,7 @@
   "name": "readable-tests",
   "displayName": "%displayName%",
   "description": "%description%",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "publisher": "jstrullu",
   "author": {
     "name": "Julien Strullu"
