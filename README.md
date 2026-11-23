@@ -50,7 +50,7 @@ Each run logs its timing in the *Readable Tests* output (`⏱ build skipped (no 
 
 ## Requirements
 
-- **.NET**: SDK 8 or later on the `PATH` (or `readableTests.dotnetPath`). For Microsoft.Testing.Platform projects (TUnit, xUnit v3, MSTest/NUnit runners), the TRX report extension — included in the `TUnit` meta-package; with `TUnit.Engine` alone, add `Microsoft.Testing.Extensions.TrxReport`.
+- **.NET**: SDK 8 or later on the `PATH` (or `readableTests.dotnetPath`). For Microsoft.Testing.Platform projects (TUnit, xUnit v3 with `UseMicrosoftTestingPlatformRunner`, MSTest/NUnit runners), the TRX report extension — included in the `TUnit` meta-package; with `TUnit.Engine` alone, add `Microsoft.Testing.Extensions.TrxReport`.
 - **JavaScript**: Node.js on the `PATH` (or `readableTests.nodePath`) and dependencies installed (`npm install`) — the extension uses the project's own Vitest, Jest or Angular CLI.
 - Works side by side with C# Dev Kit and the Vitest / Jest extensions.
 
@@ -59,14 +59,15 @@ Each run logs its timing in the *Readable Tests* output (`⏱ build skipped (no 
 | Project | Detected from | Run |
 |---|---|---|
 | TUnit, or `UseMicrosoftTestingPlatformRunner` / `EnableMSTestRunner` / `EnableNUnitRunner` / `TestingPlatformDotnetTestSupport` | `.csproj` (+ parent `Directory.Build.props`) | test binary launched directly with `--report-trx` |
-| xUnit, NUnit, MSTest (VSTest) | `.csproj` | `dotnet test --no-build --logger trx` |
+| xUnit v3 without `UseMicrosoftTestingPlatformRunner` | `.csproj` (+ parent `Directory.Build.props`) | test binary launched directly with its native command line (`-result-trx`) |
+| xUnit v2, NUnit, MSTest (VSTest) | `.csproj` | `dotnet test --no-build --logger trx` |
 | Angular CLI (Vitest) | `angular.json`, test target using `@angular/build:unit-test` | `ng test <project> --no-watch` |
 | Vitest | `vitest` dependency + `vitest.config.*` / `vite.config.*` or a `vitest` test script | `vitest run` |
 | Jest | `jest` dependency + `jest.config.*`, a `jest` key in `package.json` or a `jest` test script | `jest --ci` |
 
 JavaScript results come from a small reporter shipped with the extension (Vitest 1–5, Jest 27+), which gives exact expected/actual values, stack traces, test locations and console output.
 
-Filters: `--treenode-filter` (TUnit), `--filter-class` / `--filter-method` (xUnit v3), `--filter` (MSTest, NUnit, VSTest), test files + `-t` / `--filter` name pattern (Vitest, Jest, Angular CLI).
+Filters: `--treenode-filter` (TUnit), `--filter-class` / `--filter-method` (xUnit v3 on MTP), `-class` / `-method` (xUnit v3 native), `--filter` (MSTest, NUnit, VSTest), test files + `-t` / `--filter` name pattern (Vitest, Jest, Angular CLI).
 
 ## Settings
 
@@ -76,8 +77,9 @@ Filters: `--treenode-filter` (TUnit), `--filter-class` / `--filter-method` (xUni
 | `readableTests.configuration` | `Debug` | .NET build configuration |
 | `readableTests.buildArgs` | `[]` | Extra `dotnet build` arguments |
 | `readableTests.parallelProjects` | `true` | Run test projects in parallel (disable if they share a database, a port…) |
-| `readableTests.runner` | `auto` | .NET: `auto`, `vstest` or `mtp` |
+| `readableTests.runner` | `auto` | .NET: `auto`, `vstest`, `mtp` or `xunit3` |
 | `readableTests.mtp.extraArgs` | `[]` | Arguments passed to Microsoft.Testing.Platform test apps |
+| `readableTests.xunit3.extraArgs` | `[]` | Arguments passed to xUnit v3 test apps (native command line) |
 | `readableTests.targetFramework` | `""` | Target framework for multi-targeted projects (default: first one) |
 | `readableTests.extraArgs` | `[]` | VSTest: extra `dotnet test --no-build` arguments |
 | `readableTests.nodePath` | `node` | Node.js executable for Vitest, Jest and the Angular CLI |

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="1" name="x" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Results>
+    <UnitTestResult testName="Demo.Calc.Ko" outcome="Failed" testId="t1" executionId="t1" duration="00:00:00.0100000" startTime="2026-11-23T09:00:00.0000000+00:00" endTime="2026-11-23T09:00:00.0100000+00:00">
+      <Output><ErrorInfo><Message>Assert.Equal() Failure: Values differ
+Expected: 8
+Actual:   10</Message><StackTrace>   at Demo.Calc.Ko() in /src/T.cs:line 2</StackTrace></ErrorInfo></Output>
+    </UnitTestResult>
+  </Results>
+  <TestDefinitions>
+    <UnitTest name="Demo.Calc.Ko" id="t1"><Execution id="t1" /><TestMethod codeBase="x.dll" className="Demo.Calc" name="Ko" /></UnitTest>
+  </TestDefinitions>
+</TestRun>

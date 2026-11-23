@@ -41,6 +41,8 @@
   "Observed": "Constaté",
   "Output": "Sortie",
   "Partial results.": "Résultats partiels.",
+  "Command line option rejected by the xUnit runner: see the output.": "Option de ligne de commande refusée par le runner xUnit : voir la sortie.",
+  "The xUnit runner failed: see the output.": "Le runner xUnit a échoué : voir la sortie.",
   "Passed": "Réussi",
   "Raw message": "Message brut",
   "Reason": "Raison",

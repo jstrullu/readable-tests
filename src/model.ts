@@ -310,5 +310,10 @@ export function filterArgs(runner: string, framework: string, target: RunTarget)
       ? ['--filter-class', target.className]
       : [...new Set(target.fqns)].flatMap(f => ['--filter-method', f]);
   }
+  if (runner === 'xunit3') {
+    return target.kind === 'class'
+      ? ['-class', target.className]
+      : [...new Set(target.fqns)].flatMap(f => ['-method', f]);
+  }
   return ['--filter', buildFilter(target)!];
 }

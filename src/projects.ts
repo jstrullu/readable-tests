@@ -1,7 +1,8 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
-export type Runner = 'vstest' | 'mtp' | 'vitest' | 'jest' | 'angular';
+/** `xunit3` : ligne de commande native de xUnit v3 (binaire lancé directement, sans MTP). */
+export type Runner = 'vstest' | 'mtp' | 'xunit3' | 'vitest' | 'jest' | 'angular';
 export type Framework = 'tunit' | 'xunit3' | 'xunit' | 'nunit' | 'mstest' | 'vitest' | 'jest' | 'unknown';
 
 export interface TestProject {
@@ -40,7 +41,9 @@ function effectiveContent(csproj: string): string {
     if (parent === dir) { break; }
     dir = parent;
   }
-  return content;
+  // Directory.Packages.props (gestion centralisée) liste les versions de TOUS les paquets du dépôt :
+  // un <PackageVersion Include="TUnit"> ne veut pas dire que ce projet référence TUnit.
+  return content.replace(/<PackageVersion\b[^>]*?(?:\/>|>[\s\S]*?<\/PackageVersion>)/gi, '');
 }
 
 export function detectFramework(content: string): Framework {
@@ -54,8 +57,10 @@ export function detectFramework(content: string): Framework {
 
 export function detectRunner(content: string, framework: Framework): Runner {
   if (framework === 'tunit') { return 'mtp'; }
+  // xUnit v3 : le binaire n'expose la ligne de commande MTP qu'avec UseMicrosoftTestingPlatformRunner=true.
+  // Sinon c'est la ligne de commande native (-class, -method, -result-trx), quel que soit le mode de dotnet test.
+  if (framework === 'xunit3') { return /<UseMicrosoftTestingPlatformRunner>\s*true/i.test(content) ? 'mtp' : 'xunit3'; }
   if (/<(UseMicrosoftTestingPlatformRunner|EnableMSTestRunner|EnableNUnitRunner|TestingPlatformDotnetTestSupport)>\s*true/i.test(content)) { return 'mtp'; }
-  if (framework === 'xunit3' && /<OutputType>\s*Exe/i.test(content) && !/Microsoft\.NET\.Test\.Sdk/i.test(content)) { return 'mtp'; }
   return 'vstest';
 }
 
@@ -68,7 +73,9 @@ export function inspectProject(csproj: string, override: 'auto' | Runner = 'auto
   // qui se déclarent test ou référencent eux-mêmes un framework.
   if (!TEST_MARKERS.test(own) && !/<IsTestProject>\s*true/i.test(content)) { return undefined; }
 
-  const framework = detectFramework(content);
+  // Le framework référencé par le projet lui-même prime sur celui hérité des fichiers parents.
+  const ownFramework = detectFramework(own);
+  const framework = ownFramework !== 'unknown' ? ownFramework : detectFramework(content);
   const runner = override === 'auto' ? detectRunner(content, framework) : override;
   const tfms = /<TargetFrameworks?>\s*([^<]+)</i.exec(own)?.[1].split(';').map(s => s.trim()).filter(Boolean) ?? [];
   return { path: csproj, runner, framework, targetFrameworks: tfms };

@@ -2,7 +2,7 @@
   "name": "readable-tests",
   "displayName": "%displayName%",
   "description": "%description%",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "publisher": "jstrullu",
   "author": {
     "name": "Julien Strullu"
@@ -258,13 +258,15 @@
           "enum": [
             "auto",
             "vstest",
-            "mtp"
+            "mtp",
+            "xunit3"
           ],
           "default": "auto",
           "enumDescriptions": [
             "%config.runner.auto%",
             "%config.runner.vstest%",
-            "%config.runner.mtp%"
+            "%config.runner.mtp%",
+            "%config.runner.xunit3%"
           ],
           "description": "%config.runner%"
         },
@@ -275,6 +277,14 @@
           },
           "default": [],
           "description": "%config.mtp.extraArgs%"
+        },
+        "readableTests.xunit3.extraArgs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "%config.xunit3.extraArgs%"
         },
         "readableTests.targetFramework": {
           "type": "string",
