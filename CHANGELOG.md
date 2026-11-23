@@ -9,6 +9,11 @@ All notable changes to this extension are documented here. Format: [Keep a Chang
 - After cancelling, a new run was refused with "A run is already in progress" until every killed process had fully closed, which could take a long time or never happen. Cancelling now hands control back within 1.5 s.
 - A run no longer hangs when a test starts a background process (web host, container, server…) that inherits the console output: the run ends 2 s after the test process exits.
 - Results folders left over by a cancelled run are cleaned up at startup.
+- JavaScript: test files inside `wwwroot` or `bower_components` (copies of libraries with their own tests) were run by Vitest / Jest / the Angular CLI. They are now excluded, on top of the project's own exclusions.
+
+### Added
+
+- Setting `readableTests.js.exclude` (default `["**/wwwroot/**", "**/bower_components/**"]`): globs of JavaScript test files never run. Passed as `--exclude` to Vitest and the Angular CLI (merged with `angular.json`), and as a `--filter` module to Jest (the project's `testPathIgnorePatterns` is kept).
 
 ## [0.4.2] — 2026-11-23
 

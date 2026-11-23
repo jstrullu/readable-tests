@@ -117,3 +117,27 @@ test('Store : exécution JS filtrée sans écraser les tests non sélectionnés'
   assert.equal(after.get('maps the first name'), 'failed', 'non sélectionné : inchangé');
   assert.equal(after.get('(file failed to load)'), 'failed', 'autre fichier : inchangé');
 });
+
+test('Exclusion JS : glob → regex et module --filter de Jest (formats Jest 29 / 30)', async () => {
+  const { globToRegExpSource } = await import('../src/nodeProjects');
+  const re = (g: string) => new RegExp(globToRegExpSource(g));
+  assert.ok(re('**/wwwroot/**').test('wwwroot/lib/filepond/a.test.js'));
+  assert.ok(re('**/wwwroot/**').test('src/Web/wwwroot/lib/a.spec.js'));
+  assert.ok(!re('**/wwwroot/**').test('src/app/wwwrootish/a.spec.ts'));
+  assert.ok(re('e2e/*.spec.ts').test('e2e/login.spec.ts'));
+  assert.ok(!re('e2e/*.spec.ts').test('e2e/sub/login.spec.ts'));
+  assert.ok(re('**/a.(1).test.js').test('x/a.(1).test.js'), 'caractères spéciaux échappés');
+
+  const filterPath = path.resolve(__dirname, '../../reporters/jest-filter.cjs');
+  const cwd = process.cwd();
+  const files = [path.join(cwd, 'src', 'a.test.js'), path.join(cwd, 'wwwroot', 'lib', 'b.test.js')];
+  for (const [major, expected] of [['30', [files[0]]], ['29', [{ test: files[0] }]]] as const) {
+    process.env.READABLE_TESTS_EXCLUDE = JSON.stringify([globToRegExpSource('**/wwwroot/**')]);
+    process.env.READABLE_TESTS_JEST_MAJOR = major;
+    delete require.cache[filterPath];
+    const filter = require(filterPath) as (p: string[]) => Promise<{ filtered: unknown[] }>;
+    assert.deepEqual((await filter(files)).filtered, expected, `Jest ${major}`);
+  }
+  delete process.env.READABLE_TESTS_EXCLUDE;
+  delete process.env.READABLE_TESTS_JEST_MAJOR;
+});

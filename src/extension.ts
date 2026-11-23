@@ -230,6 +230,7 @@ export function activate(context: vscode.ExtensionContext): void {
                 nodePath: cfg.get<string>('nodePath', 'node'),
                 reportersDir: context.asAbsolutePath('reporters'),
                 extraArgs: cfg.get<string[]>(`${project.runner}.extraArgs`, []),
+                exclude: cfg.get<string[]>('js.exclude', []),
               })
               : project.runner === 'mtp'
               ? await runner.runMtp(project, await runner.resolveRunCommand(project, { dotnetPath, configuration, framework: tfmOf(project) }), fArgs, cfg.get<string[]>('mtp.extraArgs', []))

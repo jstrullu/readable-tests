@@ -39,6 +39,7 @@ export function inspectNodeFolder(dir: string): TestProject[] {
       path: `${path.join(dir, 'angular.json')}#${name}`,
       runner: 'angular', framework: 'vitest', targetFrameworks: [],
       root: dir, label: name, angularProject: name, angularRoot: proj.root ?? '',
+      angularExclude: Array.isArray(test.options?.exclude) ? test.options.exclude : [],
     });
   }
 
@@ -84,4 +85,22 @@ export function nodeRunnerBin(p: TestProject): { script: string; version: string
   if (p.runner === 'jest') { return resolveBin(root, 'jest', 'jest'); }
   if (p.runner === 'vitest') { return resolveBin(root, 'vitest', 'vitest'); }
   return undefined;
+}
+
+/**
+ * Glob (relatif à la racine du projet) → expression régulière, pour le filtre Jest.
+ * `**` traverse les dossiers, `*` et `?` restent dans un segment.
+ */
+export function globToRegExpSource(glob: string): string {
+  let re = '';
+  for (let i = 0; i < glob.length; i++) {
+    const c = glob[i];
+    if (c === '*' && glob[i + 1] === '*') {
+      i++;
+      if (glob[i + 1] === '/') { i++; re += '(?:.*/)?'; } else { re += '.*'; }
+    } else if (c === '*') { re += '[^/]*'; }
+    else if (c === '?') { re += '[^/]'; }
+    else { re += c.replace(/[.+^${}()|[\]\\]/g, '\\$&'); }
+  }
+  return `^${re}$`;
 }

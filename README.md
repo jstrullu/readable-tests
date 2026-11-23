@@ -78,6 +78,7 @@ Filters: `--treenode-filter` (TUnit), `--filter-class` / `--filter-method` (xUni
 | `readableTests.buildArgs` | `[]` | Extra `dotnet build` arguments |
 | `readableTests.parallelProjects` | `true` | Run test projects in parallel (disable if they share a database, a port…) |
 | `readableTests.runner` | `auto` | .NET: `auto`, `vstest`, `mtp` or `xunit3` |
+| `readableTests.js.exclude` | `["**/wwwroot/**", "**/bower_components/**"]` | JavaScript test files never run (added to the project's own exclusions) |
 | `readableTests.mtp.extraArgs` | `[]` | Arguments passed to Microsoft.Testing.Platform test apps |
 | `readableTests.xunit3.extraArgs` | `[]` | Arguments passed to xUnit v3 test apps (native command line) |
 | `readableTests.targetFramework` | `""` | Target framework for multi-targeted projects (default: first one) |

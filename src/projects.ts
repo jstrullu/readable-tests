@@ -18,6 +18,8 @@ export interface TestProject {
   /** Angular : nom du projet dans angular.json et sa racine relative */
   angularProject?: string;
   angularRoot?: string;
+  /** Angular : option "exclude" de la cible test d'angular.json (remplacée par --exclude en ligne de commande) */
+  angularExclude?: string[];
   /** JS : runner introuvable dans les node_modules (npm install non fait) */
   notInstalled?: boolean;
 }

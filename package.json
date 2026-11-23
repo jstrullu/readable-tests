@@ -270,6 +270,17 @@
           ],
           "description": "%config.runner%"
         },
+        "readableTests.js.exclude": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "**/wwwroot/**",
+            "**/bower_components/**"
+          ],
+          "description": "%config.js.exclude%"
+        },
         "readableTests.mtp.extraArgs": {
           "type": "array",
           "items": {
