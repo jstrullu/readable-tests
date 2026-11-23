@@ -2,7 +2,20 @@
 
 All notable changes to this extension are documented here. Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [0.4.0] — 2026-11-20
+## [0.4.1] — 2026-11-23
+
+### Fixed
+
+- .NET: large TRX reports failed with "Entity expansion limit exceeded: … > 1000" (XML parser security limit hit by ordinary `&lt;` / `&quot;` in messages, console output and stack traces).
+- JavaScript: libraries copied into `wwwroot` (e.g. `wwwroot/lib/<package>`) or `dist` were detected as test projects. These folders are now excluded by default.
+- "Run all" no longer fails on a JavaScript project whose dependencies are not installed: it is skipped and reported in the output, and marked "npm install required" in the tree.
+
+### Changed
+
+- README badges: Marketplace version and installs from vsmarketplacebadges.dev (shields.io retired them).
+- Third-party notices are generated from the bundled dependencies at packaging time.
+
+## [0.4.0] — 2026-11-22
 
 First public release (preview).
 

@@ -7,7 +7,7 @@ import { DetailsView } from './details';
 import { filterArgs, formatDuration, fullyQualifiedName, jsFullName, projectName, resultKey, RunTarget, summarize, TestResult, TreeNode } from './model';
 import { inspectProject, isNodeRunner, Runner, TestProject } from './projects';
 import { TestRunner } from './runner';
-import { inspectNodeFolder } from './nodeProjects';
+import { inspectNodeFolder, nodeRunnerBin } from './nodeProjects';
 import { clearSourceCache, goToJsTest, goToTest, openLocation, readSnippet, resolveSource } from './source';
 import { ResultStore } from './store';
 import { TestTreeProvider } from './tree';
@@ -32,8 +32,9 @@ export function activate(context: vscode.ExtensionContext): void {
   const tree = new TestTreeProvider(() => [...projects.keys()], () => store.all(), p => {
     const info = projects.get(p);
     if (!info) { return undefined; }
-    if (info.runner === 'angular') { return 'angular · vitest'; }
-    if (isNodeRunner(info.runner)) { return info.runner; }
+    const missing = info.notInstalled ? ` · ${t('npm install required')}` : '';
+    if (info.runner === 'angular') { return `angular · vitest${missing}`; }
+    if (isNodeRunner(info.runner)) { return `${info.runner}${missing}`; }
     return `${info.framework === 'unknown' ? '' : info.framework + ' · '}${info.runner}`;
   }, p => projects.get(p)?.label ?? projectName(p));
   const treeView = vscode.window.createTreeView('readableTests.tree', { treeDataProvider: tree, showCollapseAll: true });
@@ -99,7 +100,10 @@ export function activate(context: vscode.ExtensionContext): void {
     // JavaScript : Angular CLI (Vitest), Vitest, Jest
     const pkgs = await vscode.workspace.findFiles('**/package.json', config().get<string>('projectExclude'));
     for (const f of pkgs.sort((a, b) => a.fsPath.localeCompare(b.fsPath))) {
-      for (const p of inspectNodeFolder(path.dirname(f.fsPath))) { projects.set(p.path, p); }
+      for (const p of inspectNodeFolder(path.dirname(f.fsPath))) {
+        p.notInstalled = !nodeRunnerBin(p);
+        projects.set(p.path, p);
+      }
     }
     store.retainProjects([...projects.keys()]);
     clearSourceCache();
@@ -296,7 +300,12 @@ export function activate(context: vscode.ExtensionContext): void {
 
   const cmd = (id: string, fn: (...a: any[]) => unknown) => context.subscriptions.push(vscode.commands.registerCommand(id, fn));
 
-  cmd('readableTests.runAll', () => run([...projects.keys()].map(p => ({ project: p, target: { kind: 'all' } }))));
+  cmd('readableTests.runAll', () => {
+    // Un projet JS dont les dépendances ne sont pas installées est sauté (signalé), pas une erreur bloquante.
+    const skipped = [...projects.values()].filter(p => p.notInstalled);
+    for (const p of skipped) { output.appendLine(t('{0}: skipped, dependencies are not installed (run npm install in {1}).', p.label ?? projectName(p.path), p.root ?? '')); }
+    return run([...projects.values()].filter(p => !p.notInstalled).map(p => ({ project: p.path, target: { kind: 'all' } })));
+  });
   cmd('readableTests.runFailed', () => {
     const byProject = new Map<string, TestResult[]>();
     for (const r of store.failed()) {

@@ -87,7 +87,7 @@ Filters: `--treenode-filter` (TUnit), `--filter-class` / `--filter-method` (xUni
 | `readableTests.inlineErrors` | `true` | Failure summary at the end of the assertion line |
 | `readableTests.revealFailures` | `true` | Expand failed tests after a run |
 | `readableTests.dotnetPath` | `dotnet` | dotnet executable |
-| `readableTests.projectExclude` | `**/{bin,obj,node_modules,.git}/**` | Excluded when looking for test projects |
+| `readableTests.projectExclude` | `**/{bin,obj,node_modules,.git,wwwroot,bower_components,dist}/**` | Excluded when looking for test projects (`wwwroot` / `dist` hold copied libraries, not test projects) |
 
 ## Known limitations
 

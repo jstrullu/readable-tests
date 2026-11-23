@@ -10,6 +10,14 @@ const parser = new XMLParser({
   parseAttributeValue: false,
   parseTagValue: false,
   isArray: name => name === 'UnitTestResult' || name === 'UnitTest',
+  // Un TRX est un fichier local produit par le test runner, sans entités personnalisées :
+  // les limites anti « bombe d'entités » (1000 expansions par défaut en 4.x) cassent les vrais TRX,
+  // qui contiennent des milliers de &lt; &gt; &quot; (messages, sorties console, stack traces).
+  processEntities: {
+    enabled: true,
+    maxTotalExpansions: Number.MAX_SAFE_INTEGER,
+    maxExpandedLength: Number.MAX_SAFE_INTEGER,
+  },
 });
 
 /** "00:00:01.2345678" ou "1.02:03:04.5" → millisecondes */

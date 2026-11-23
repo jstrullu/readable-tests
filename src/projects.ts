@@ -17,6 +17,8 @@ export interface TestProject {
   /** Angular : nom du projet dans angular.json et sa racine relative */
   angularProject?: string;
   angularRoot?: string;
+  /** JS : runner introuvable dans les node_modules (npm install non fait) */
+  notInstalled?: boolean;
 }
 
 export function isNodeRunner(r: Runner): boolean { return r === 'vitest' || r === 'jest' || r === 'angular'; }
