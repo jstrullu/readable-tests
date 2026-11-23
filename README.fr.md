@@ -1,5 +1,10 @@
 # Readable Tests
 
+[![Marketplace](https://vsmarketplacebadges.dev/version/jstrullu.readable-tests.svg?label=Marketplace&color=blue)](https://marketplace.visualstudio.com/items?itemName=jstrullu.readable-tests)
+[![Installs](https://vsmarketplacebadges.dev/installs/jstrullu.readable-tests.svg)](https://marketplace.visualstudio.com/items?itemName=jstrullu.readable-tests)
+[![Open VSX](https://img.shields.io/open-vsx/v/jstrullu/readable-tests?label=Open%20VSX)](https://open-vsx.org/extension/jstrullu/readable-tests)
+[![CI](https://github.com/jstrullu/readable-tests/actions/workflows/ci.yml/badge.svg)](https://github.com/jstrullu/readable-tests/actions/workflows/ci.yml)
+
 **Des résultats de tests lisibles dans VS Code, pour .NET et JavaScript** — TUnit / Microsoft.Testing.Platform, xUnit, NUnit, MSTest, **Vitest, Jest et Angular CLI**.
 
 L'explorateur de tests vous dit *qu'un* test a échoué. Readable Tests vous montre *pourquoi*, d'un coup d'œil : ce qui était attendu, ce qui est sorti, où, et par quels appels — avec la même vue quelle que soit la stack.
