@@ -21,6 +21,7 @@
   "config.revealFailures": "Expand failed tests in the tree after a run.",
   "config.runner": "Test execution engine.",
   "config.mtp.extraArgs": "MTP: arguments passed to the test application (e.g. [\"--timeout\", \"5m\"]).",
+  "config.js.exclude": "JavaScript (Vitest, Jest, Angular CLI): globs of test files never run, relative to the project root. Added to the exclusions of the project configuration (copies of libraries in wwwroot, bower_components…).",
   "config.xunit3.extraArgs": "xUnit v3 (native command line): arguments passed to the test application (e.g. [\"-parallel\", \"none\"]).",
   "config.targetFramework": "Target framework for multi-targeted projects (e.g. net9.0). Empty = first declared.",
   "config.inlineErrors": "Show a failure summary at the end of the assertion line in the editor.",

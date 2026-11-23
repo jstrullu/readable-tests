@@ -1,3 +1,4 @@
+import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
@@ -21,7 +22,10 @@ export function activate(context: vscode.ExtensionContext): void {
   setTranslator((message, args) => vscode.l10n.t(message, ...args));
   const output = vscode.window.createOutputChannel('Readable Tests');
   const storage = (context.storageUri ?? context.globalStorageUri).fsPath;
-  const runner = new TestRunner(output, `${storage}/runs`);
+  const runsDir = path.join(storage, 'runs');
+  // Dossiers de résultats laissés par une exécution annulée ou interrompue (fichier verrouillé à l'époque).
+  fs.rm(runsDir, { recursive: true, force: true }, () => { /* best effort */ });
+  const runner = new TestRunner(output, runsDir);
   const store = new ResultStore(context.workspaceState.get<TestResult[]>(STATE_KEY, []));
   const config = () => vscode.workspace.getConfiguration('readableTests');
   const projects = new Map<string, TestProject>();
@@ -226,6 +230,7 @@ export function activate(context: vscode.ExtensionContext): void {
                 nodePath: cfg.get<string>('nodePath', 'node'),
                 reportersDir: context.asAbsolutePath('reporters'),
                 extraArgs: cfg.get<string[]>(`${project.runner}.extraArgs`, []),
+                exclude: cfg.get<string[]>('js.exclude', []),
               })
               : project.runner === 'mtp'
               ? await runner.runMtp(project, await runner.resolveRunCommand(project, { dotnetPath, configuration, framework: tfmOf(project) }), fArgs, cfg.get<string[]>('mtp.extraArgs', []))

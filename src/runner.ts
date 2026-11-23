@@ -4,7 +4,7 @@ import * as path from 'path';
 import { TestResult } from './model';
 import { TestProject } from './projects';
 import { convertReport, ReporterOutput } from './jsResults';
-import { majorVersion, resolveBin } from './nodeProjects';
+import { globToRegExpSource, majorVersion, resolveBin } from './nodeProjects';
 import { RunTarget } from './model';
 import { parseTrx } from './trxParser';
 import { t } from './i18n';
@@ -42,10 +42,17 @@ function xunitExit(code: number): string | undefined {
   }
 }
 
+/** Délai max entre 'exit' et 'close' (sortie gardée ouverte par un petit-enfant). */
+const EXIT_DRAIN_MS = 2000;
+/** Délai max après une annulation avant de considérer les processus comme terminés. */
+const CANCEL_GRACE_MS = 1500;
+
 const ENV = { DOTNET_CLI_TELEMETRY_OPTOUT: '1', DOTNET_NOLOGO: '1', TESTINGPLATFORM_TELEMETRY_OPTOUT: '1' };
 
 export class TestRunner {
   private readonly procs = new Set<ChildProcess>();
+  /** Fin forcée des exec() en cours : l'annulation ne dépend pas de la fermeture effective des processus. */
+  private readonly pending = new Set<() => void>();
   private cancelled = false;
   private readonly runCommands = new Map<string, RunCommand>();
 
@@ -65,6 +72,11 @@ export class TestRunner {
         try { process.kill(-p.pid, 'SIGTERM'); } catch { p.kill('SIGTERM'); }
       }
     }
+    // Un processus tué peut tarder à « fermer » (taskkill lent, petit-enfant qui garde la sortie
+    // ouverte) : on n'attend pas plus de CANCEL_GRACE_MS pour rendre la main. Seuls les exec en cours
+    // au moment de l'annulation sont concernés, pas ceux d'une exécution relancée entre-temps.
+    const stale = [...this.pending];
+    setTimeout(() => stale.forEach(finish => finish()), CANCEL_GRACE_MS);
   }
 
   /** À appeler quand un .csproj / .props change : chemins de sortie potentiellement différents. */
@@ -74,17 +86,32 @@ export class TestRunner {
     if (!opts.quiet) { this.log.appendLine(`\n▶ ${cmd} ${args.map(quoteForLog).join(' ')}`); }
     return new Promise(resolve => {
       let stdout = '';
+      let done = false;
+      let drain: NodeJS.Timeout | undefined;
       const child = spawn(cmd, args, {
         cwd,
         env: { ...process.env, ...ENV, ...opts.env },
         shell: false,
         detached: process.platform !== 'win32', // groupe de processus pour pouvoir tout arrêter
       });
+      const finish = (code: number | null) => {
+        if (done) { return; }
+        done = true;
+        clearTimeout(drain);
+        this.procs.delete(child);
+        this.pending.delete(abort);
+        resolve({ code, stdout });
+      };
+      const abort = () => finish(null);
       this.procs.add(child);
+      this.pending.add(abort);
       child.stdout.on('data', d => { const s = d.toString(); if (opts.capture) { stdout += s; } if (!opts.quiet) { this.log.append(s); } });
       child.stderr.on('data', d => { if (!opts.quiet) { this.log.append(d.toString()); } });
-      child.on('error', err => { this.log.appendLine(t('Error: {0}', err.message)); this.procs.delete(child); resolve({ code: null, stdout }); });
-      child.on('close', code => { this.procs.delete(child); resolve({ code, stdout }); });
+      child.on('error', err => { this.log.appendLine(t('Error: {0}', err.message)); finish(null); });
+      // 'close' attend la fermeture de stdout/stderr : un processus lancé par le test (serveur, conteneur…)
+      // qui hérite de la sortie la garde ouverte indéfiniment. Passé un délai après 'exit', on n'attend plus.
+      child.on('exit', code => { drain = setTimeout(() => finish(code), EXIT_DRAIN_MS); });
+      child.on('close', code => finish(code));
     });
   }
 
@@ -173,7 +200,11 @@ export class TestRunner {
    * JavaScript : Vitest, Jest ou `ng test` lancés avec node (binaire local, pas de shell) et le reporter
    * embarqué de l'extension, qui écrit un JSON normalisé dans READABLE_TESTS_OUTPUT.
    */
-  async runNode(project: TestProject, target: RunTarget, o: { nodePath: string; reportersDir: string; extraArgs: string[] }): Promise<ProjectRunStatus> {
+  /**
+   * @param o.exclude globs de fichiers de test à ne jamais lancer (relatifs à la racine du projet),
+   *   ajoutés aux exclusions propres au projet
+   */
+  async runNode(project: TestProject, target: RunTarget, o: { nodePath: string; reportersDir: string; extraArgs: string[]; exclude: string[] }): Promise<ProjectRunStatus> {
     const root = project.root!;
     const dir = this.newResultsDir(project);
     const output = path.join(dir, 'results.json');
@@ -181,19 +212,27 @@ export class TestRunner {
 
     let script: { script: string; version: string } | undefined;
     let args: string[];
+    const env: Record<string, string> = { READABLE_TESTS_OUTPUT: output, NO_COLOR: '1', FORCE_COLOR: '0', NG_CLI_ANALYTICS: 'false' };
     if (project.runner === 'jest') {
       script = resolveBin(root, 'jest', 'jest');
-      args = ['--ci', '--testLocationInResults', '--passWithNoTests', '--reporters=default', `--reporters=${path.join(o.reportersDir, 'jest.cjs')}`,
+      // --filter (module) plutôt que --testPathIgnorePatterns, qui remplacerait celui de la configuration.
+      const filter = o.exclude.length ? [`--filter=${path.join(o.reportersDir, 'jest-filter.cjs')}`] : [];
+      env.READABLE_TESTS_EXCLUDE = JSON.stringify(o.exclude.map(globToRegExpSource));
+      env.READABLE_TESTS_JEST_MAJOR = String(script ? majorVersion(script.version) : 30);
+      args = ['--ci', '--testLocationInResults', '--passWithNoTests', '--reporters=default', `--reporters=${path.join(o.reportersDir, 'jest.cjs')}`, ...filter,
         ...(sel.pattern ? ['-t', sel.pattern] : []), ...o.extraArgs, ...(sel.files.length ? ['--runTestsByPath', ...sel.files] : [])];
     } else if (project.runner === 'angular') {
       script = resolveBin(root, '@angular/cli', 'ng');
+      // --exclude remplace l'option d'angular.json : on la reprend.
+      const exclude = o.exclude.length ? [...new Set([...(project.angularExclude ?? []), ...o.exclude])] : [];
       args = ['test', project.angularProject!, '--no-watch', '--no-progress', '--reporters=default', `--reporters=${path.join(o.reportersDir, 'vitest.mjs')}`,
-        ...sel.files.map(f => `--include=${f}`), ...(sel.pattern ? [`--filter=${sel.pattern}`] : []), ...o.extraArgs];
+        ...sel.files.map(f => `--include=${f}`), ...exclude.map(g => `--exclude=${g}`), ...(sel.pattern ? [`--filter=${sel.pattern}`] : []), ...o.extraArgs];
     } else {
       script = resolveBin(root, 'vitest', 'vitest');
       const withLocation = script && majorVersion(script.version) >= 4 ? ['--includeTaskLocation'] : [];
+      // --exclude de Vitest s'ajoute aux exclusions de la configuration.
       args = ['run', '--reporter=default', `--reporter=${path.join(o.reportersDir, 'vitest.mjs')}`, '--passWithNoTests', ...withLocation,
-        ...(sel.pattern ? ['-t', sel.pattern] : []), ...o.extraArgs, ...sel.files];
+        ...o.exclude.map(g => `--exclude=${g}`), ...(sel.pattern ? ['-t', sel.pattern] : []), ...o.extraArgs, ...sel.files];
     }
     if (!script) {
       fs.rmSync(dir, { recursive: true, force: true });
@@ -201,9 +240,7 @@ export class TestRunner {
       return { ok: false, error: t('{0} is not installed in {1}: run npm install.', pkg, root) };
     }
 
-    const res = await this.exec(o.nodePath, [script.script, ...args], root, {
-      env: { READABLE_TESTS_OUTPUT: output, NO_COLOR: '1', FORCE_COLOR: '0', NG_CLI_ANALYTICS: 'false' },
-    });
+    const res = await this.exec(o.nodePath, [script.script, ...args], root, { env });
     try {
       if (this.cancelled) { return { ok: false, error: t('Run cancelled.') }; }
       if (res.code === null) { return { ok: false, error: t('Cannot start "{0}".', o.nodePath) }; }
@@ -213,7 +250,8 @@ export class TestRunner {
     } catch (e) {
       return { ok: false, error: t('Cannot read results: {0}', (e as Error).message) };
     } finally {
-      fs.rmSync(dir, { recursive: true, force: true });
+      // Après annulation, un processus encore en train de mourir peut verrouiller le dossier (Windows).
+      try { fs.rmSync(dir, { recursive: true, force: true, maxRetries: 3 }); } catch { /* nettoyé au prochain démarrage */ }
     }
   }
 
@@ -246,7 +284,8 @@ export class TestRunner {
     } catch (e) {
       return { ok: false, error: t('Cannot read results: {0}', (e as Error).message) };
     } finally {
-      fs.rmSync(dir, { recursive: true, force: true });
+      // Après annulation, un processus encore en train de mourir peut verrouiller le dossier (Windows).
+      try { fs.rmSync(dir, { recursive: true, force: true, maxRetries: 3 }); } catch { /* nettoyé au prochain démarrage */ }
     }
   }
 }

@@ -21,6 +21,7 @@
   "config.revealFailures": "Déplier les tests en échec dans l'arbre après une exécution.",
   "config.runner": "Moteur d'exécution des projets de test.",
   "config.mtp.extraArgs": "MTP : arguments passés à l'application de test (ex. [\"--timeout\", \"5m\"]).",
+  "config.js.exclude": "JavaScript (Vitest, Jest, Angular CLI) : globs des fichiers de test jamais lancés, relatifs à la racine du projet. S'ajoutent aux exclusions de la configuration du projet (copies de bibliothèques dans wwwroot, bower_components…).",
   "config.xunit3.extraArgs": "xUnit v3 (ligne de commande native) : arguments passés à l'application de test (ex. [\"-parallel\", \"none\"]).",
   "config.targetFramework": "Framework cible des projets multi-cibles (ex. net9.0). Vide = le premier déclaré.",
   "config.inlineErrors": "Afficher le résumé de l'échec en fin de ligne de l'assertion dans l'éditeur.",
