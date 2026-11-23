@@ -1,0 +1,40 @@
+# Temporaire : rapport CodeQL (sécurité + qualité) en artefact, pour lecture hors de l'onglet Security.
+name: tmp-codeql-scan
+on:
+  push:
+    branches: [tmp/codeql-scan]
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        language: [javascript-typescript, actions]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: github/codeql-action/init@v4
+        with:
+          languages: ${{ matrix.language }}
+          queries: security-and-quality,code-quality
+      - uses: github/codeql-action/analyze@v4
+        with:
+          upload: never
+          output: sarif
+      - name: Print findings
+        run: |
+          python3 - <<'PY'
+          import json, glob
+          for f in glob.glob('sarif/*.sarif'):
+              d = json.load(open(f))
+              for run in d['runs']:
+                  rules = {}
+                  for comp in [run['tool']['driver'], *run['tool'].get('extensions', [])]:
+                      for r in comp.get('rules', []): rules[r['id']] = r
+                  for res in run.get('results', []):
+                      r = rules.get(res['ruleId'], {}); p = r.get('properties', {})
+                      loc = res['locations'][0]['physicalLocation']; reg = loc.get('region', {})
+                      print(f"FINDING|{p.get('security-severity','-')}|{p.get('problem.severity','')}|{res['ruleId']}|{loc['artifactLocation']['uri']}:{reg.get('startLine')}:{reg.get('startColumn')}|{res['message']['text'][:220]}".replace('\n',' '))
+          PY
