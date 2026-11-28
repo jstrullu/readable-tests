@@ -66,11 +66,11 @@ test('Exécution : un petit-enfant qui garde la sortie ouverte ne bloque pas la 
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'hold-'));
   const script = path.join(tmp, 'app.js');
   // Le « test » lance un serveur détaché qui hérite de stdout puis se termine (cas Testcontainers, host web…).
-  fs.writeFileSync(script, `const c = require('child_process').spawn(process.execPath, ['-e', 'setTimeout(() => {}, 20000)'], { stdio: 'inherit', detached: true, cwd: require('os').tmpdir() }); require('fs').writeFileSync(${JSON.stringify(path.join(tmp, 'pid'))}, String(c.pid)); c.unref();`);
+  fs.writeFileSync(script, `const c = require('child_process').spawn(process.execPath, ['-e', 'setTimeout(() => {}, 20000)'], { stdio: 'inherit', detached: true, cwd: require('os').tmpdir() }); require('fs').writeFileSync(process.env.PID_FILE, String(c.pid)); c.unref();`);
   const runner = new TestRunner({ append: () => {}, appendLine: () => {} } as never, tmp);
   const t0 = Date.now();
   const res = await runner.runMtp({ path: path.join(tmp, 'X.csproj'), runner: 'mtp', framework: 'tunit', targetFrameworks: [] },
-    { command: process.execPath, args: [script], cwd: os.tmpdir(), targetPath: script, env: {} }, [], []);
+    { command: process.execPath, args: [script], cwd: os.tmpdir(), targetPath: script, env: { PID_FILE: path.join(tmp, 'pid') } }, [], []);
   assert.ok(Date.now() - t0 < 6000, `rendu en ${Date.now() - t0} ms`);
   assert.equal(res.ok, false);
   try { process.kill(Number(fs.readFileSync(path.join(tmp, 'pid'), 'utf8')), 'SIGKILL'); } catch { /* déjà mort */ }
@@ -82,11 +82,11 @@ test('Annulation : la main est rendue même si le processus ne se ferme pas', as
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'cancel-'));
   const script = path.join(tmp, 'app.js');
   // Processus qui ignore SIGTERM : simule un taskkill lent ou un processus récalcitrant.
-  fs.writeFileSync(script, `require('fs').writeFileSync(${JSON.stringify(path.join(tmp, 'pid'))}, String(process.pid)); process.on('SIGTERM', () => {}); setTimeout(() => {}, 20000);`);
+  fs.writeFileSync(script, `require('fs').writeFileSync(process.env.PID_FILE, String(process.pid)); process.on('SIGTERM', () => {}); setTimeout(() => {}, 20000);`);
   const runner = new TestRunner({ append: () => {}, appendLine: () => {} } as never, tmp);
   const t0 = Date.now();
   const pending = runner.runMtp({ path: path.join(tmp, 'X.csproj'), runner: 'mtp', framework: 'tunit', targetFrameworks: [] },
-    { command: process.execPath, args: [script], cwd: os.tmpdir(), targetPath: script, env: {} }, [], []);
+    { command: process.execPath, args: [script], cwd: os.tmpdir(), targetPath: script, env: { PID_FILE: path.join(tmp, 'pid') } }, [], []);
   setTimeout(() => runner.cancel(), 300);
   const res = await pending;
   assert.ok(Date.now() - t0 < 5000, `rendu en ${Date.now() - t0} ms`);
@@ -101,3 +101,14 @@ test('Annulation : la main est rendue même si le processus ne se ferme pas', as
 function removeLater(dir: string): void {
   try { fs.rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }); } catch { /* dossier temporaire */ }
 }
+
+test('Journal : arguments cités copiables (chemins Windows lisibles, guillemets et \\ finaux échappés)', async () => {
+  const { quoteForLog } = await import('../src/runner');
+  assert.equal(quoteForLog('--no-ansi'), '--no-ansi');
+  assert.equal(quoteForLog('C:\\Repos\\x.exe'), 'C:\\Repos\\x.exe');
+  assert.equal(quoteForLog('C:\\Program Files\\dotnet'), '"C:\\Program Files\\dotnet"');
+  assert.equal(quoteForLog('C:\\My Dir\\'), '"C:\\My Dir\\\\"', '\\ final doublé');
+  assert.equal(quoteForLog('a "b"'), '"a \\"b\\""');
+  assert.equal(quoteForLog('x\\"y'), '"x\\\\\\"y"', '\\ devant un " : doublé + échappement');
+  assert.equal(quoteForLog(''), '""');
+});

@@ -346,8 +346,22 @@ function findTrx(dir: string): string[] {
   return out;
 }
 
-function quoteForLog(a: string): string {
-  return /[\s|;"*()]/.test(a) ? `"${a.replace(/"/g, '\\"')}"` : a;
+/**
+ * Argument cité pour la ligne « ▶ commande » du journal, copiable dans un terminal.
+ * Règles de CommandLineToArgvW : les \ ne sont doublés que devant un " (échappé) ou en fin
+ * d'argument (devant le " fermant) ; ailleurs, un chemin Windows reste lisible.
+ */
+export function quoteForLog(a: string): string {
+  if (a !== '' && !/[\s|;"'*()&<>^]/.test(a)) { return a; }
+  let out = '';
+  let slashes = 0;
+  for (const c of a) {
+    if (c === '\\') { slashes++; continue; }
+    if (c === '"') { out += '\\'.repeat(slashes * 2 + 1) + '"'; }
+    else { out += '\\'.repeat(slashes) + c; }
+    slashes = 0;
+  }
+  return `"${out}${'\\'.repeat(slashes * 2)}"`;
 }
 
 function escapeRegex(s: string): string { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
